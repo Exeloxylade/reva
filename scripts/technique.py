@@ -65,10 +65,21 @@ def palette(a):
     print("main colours (paper, ink, greys):")
     for share, hx, s, l in rows[: a.n]:
         print("  %s  %5.1f%%" % (hx, 100 * share))
-    acc = [r for r in rows if r[2] > 0.35 and 0.15 < r[3] < 0.85][:4]
+    # accents: thin lines and small chips vanish in a merged palette, so scan every pixel instead
+    full = Image.open(a.image).convert("RGB").resize((960, 540))
+    buckets = {}
+    for (r, g, b) in full.getdata():
+        h, l, s = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+        if s > 0.35 and 0.12 < l < 0.85:
+            k = (r // 24, g // 24, b // 24)
+            n, sr, sg, sb = buckets.get(k, (0, 0, 0, 0))
+            buckets[k] = (n + 1, sr + r, sg + g, sb + b)
+    px = 960 * 540
     print("accent colours (saturated, any size):")
-    for share, hx, s, l in acc:
-        print("  %s  %5.2f%%" % (hx, 100 * share))
+    for n, sr, sg, sb in sorted(buckets.values(), reverse=True)[:4]:
+        if n / px < 0.0005:
+            break
+        print("  #%02x%02x%02x  %5.2f%%" % (sr // n, sg // n, sb // n, 100 * n / px))
 
 
 def compare(a):

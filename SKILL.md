@@ -13,6 +13,23 @@ Rule: REVA learns **techniques** (how a chart draws, how a card enters, how loud
 rebuilds them with **your own script, voice and data**. It does not rebuild a whole reference film
 scene by scene over its own narration. The output of REVA is a better skill, not a copy.
 
+## Quick start: one command, one folder per study
+
+```
+set REVA=C:\Users\Ahmad\.kiro\crew\skills\reva\reva.cmd
+%REVA% start finance-doc <url-or-file>                     tear down -> workspace\reva\finance-doc\ref\
+%REVA% add finance-doc document-card --from 87 --to 93     strip at 5 fps + 3 stills + notes.md
+%REVA% stills finance-doc document-card --at 89.5          more stills to measure
+%REVA% colors finance-doc document-card                    paper / ink / accent hex
+%REVA% sound finance-doc                                   transition sound numbers
+%REVA% compare finance-doc document-card --mine <your.mp4> --mine-at 12,20
+%REVA% status                                              every study and technique
+```
+Study folder: `study.json` (source + technique list + status), `ref\` (teardown),
+`<technique>\theirs\` (strip, stills), `<technique>\notes.md` (measured numbers, gaps),
+`<technique>\compare.jpg` (reference left, yours right). The existing study is `finance-doc`.
+Build the rebuild in Branch 1 (`vm new lab-<technique> --from indo-crash`), then compare here.
+
 ## Tools (`scripts/`)
 
 | Tool | Job |
