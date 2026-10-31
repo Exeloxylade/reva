@@ -14,17 +14,23 @@ A study lives in workspace\\reva\\<study>\\ :
   reva sound <study> [--at 7.4,16.5]               transition sound numbers (default: scene changes)
   reva compare <study> <technique> --mine <mp4> --mine-at 12.5,25 [--ref-at 44,56]
   reva status [<study>]                            studies, techniques, what is measured / compared
+  reva measure <study> [--subs <file>]             style-file numbers: cuts, picture length, still vs moving, wpm
+  reva deliver <study> [--app <folder>]            copy <study>\\style\\<id>\\ into the app's styles\\ and check it
 """
 import argparse
 import glob
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 S = os.path.join(HERE, "scripts")
 ROOT = os.path.join(os.path.expanduser("~"), ".kiro", "crew", "workspace", "reva")
+# The app that reads delivered styles (Automated Lunch Free); REVA_APP or --app overrides it.
+APP = os.environ.get("REVA_APP") or r"C:\Users\Ahmad\OneDrive\Documents\A AGENTIC AI WORKS\Agentic AI\Automated Lunch Free"
 
 
 def py(script, *args, quiet=False):
@@ -142,6 +148,64 @@ def cmd_status(a):
             print("   no techniques yet: reva add", s, "<name> --from <s> --to <s>")
 
 
+def subs_for(study):
+    """The reference's own-language subtitles: the video's language, else an -orig track, else any."""
+    ref = sdir(study, "ref")
+    found = [f for f in glob.glob(os.path.join(ref, "ref*.vtt")) + glob.glob(os.path.join(ref, "ref*.srt"))]
+    if not found:
+        return None
+    lang = ""
+    for ij in glob.glob(os.path.join(ref, "*.info.json")):
+        try:
+            lang = (json.load(open(ij, encoding="utf-8")).get("language") or "").split("-")[0]
+        except Exception:
+            pass
+    pick = [f for f in found if lang and re.search(rf"\.{re.escape(lang)}\.(vtt|srt)$", f)]
+    pick = pick or [f for f in found if "-orig" in f] or found
+    return pick[0]
+
+
+def cmd_measure(a):
+    st = load(a.study) if os.path.exists(sdir(a.study, "study.json")) else None
+    subs = a.subs or subs_for(a.study)
+    out = sdir(a.study, "ref", "measure.json")
+    args = [ref_video(a.study), "--out", out] + (["--subs", subs] if subs else [])
+    py("measure.py", *args)
+    if st is not None:
+        m = json.load(open(out, encoding="utf-8"))
+        st["measure"] = {"cuts": m["cuts"], "motion": m["motion"], "wpm": m.get("words", {}).get("wpm")}
+        if m.get("words", {}).get("wpm"):
+            st["wpm"] = m["words"]["wpm"]
+        save(a.study, st)
+    print(f"\nput the 'style' numbers into {sdir(a.study, 'style', '<id>', '<id>.style.json')} (template: <app>\\docs\\reference-style.template.json),")
+    print(f"then: reva deliver {a.study}")
+
+
+def cmd_deliver(a):
+    app = a.app or APP
+    files = glob.glob(sdir(a.study, "style", "*", "*.style.json"))
+    if not files:
+        sys.exit(f"no style yet: write {sdir(a.study, 'style', '<id>', '<id>.style.json')} "
+                 f"(template: {os.path.join(app, 'docs', 'reference-style.template.json')})")
+    if not os.path.isdir(os.path.join(app, "styles")):
+        sys.exit(f"no app at {app} (set REVA_APP or --app)")
+    for f in files:
+        src = os.path.dirname(f)
+        sid = os.path.basename(src)
+        if os.path.basename(f) != f"{sid}.style.json":
+            sys.exit(f"{f}: the file must be named {sid}.style.json (folder name = style id)")
+        dst = os.path.join(app, "styles", sid)
+        # The style file, its .md twin, an optional references\ board, and test\ (golden beats: git ignores it).
+        shutil.copytree(src, dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.tmp", "__pycache__"))
+        print(f"delivered {sid} -> {dst}")
+        r = subprocess.run(["node", os.path.join(app, "scripts", "style-check.js"), sid], cwd=app, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        print(r.stdout.rstrip())
+        if r.returncode:
+            sys.exit("style-check failed: fix every ERROR above, then deliver again")
+        print(f"next: cd \"{app}\" && npm.cmd run style-test -- --style {sid} --preset cinematic-story   (pass = 6 of 8 beats)")
+
+
 def main():
     ap = argparse.ArgumentParser(prog="reva", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -154,9 +218,11 @@ def main():
     s = sub.add_parser("compare"); s.add_argument("study"); s.add_argument("technique"); s.add_argument("--mine", required=True)
     s.add_argument("--mine-at", required=True); s.add_argument("--ref-at")
     s = sub.add_parser("status"); s.add_argument("study", nargs="?")
+    s = sub.add_parser("measure"); s.add_argument("study"); s.add_argument("--subs")
+    s = sub.add_parser("deliver"); s.add_argument("study"); s.add_argument("--app")
     a = ap.parse_args()
     {"start": cmd_start, "add": cmd_add, "stills": cmd_stills, "colors": cmd_colors, "sound": cmd_sound,
-     "compare": cmd_compare, "status": cmd_status}[a.cmd](a)
+     "compare": cmd_compare, "status": cmd_status, "measure": cmd_measure, "deliver": cmd_deliver}[a.cmd](a)
 
 
 if __name__ == "__main__":
