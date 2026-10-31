@@ -40,6 +40,8 @@ Build the rebuild in Branch 1 (`vm new lab-<technique> --from indo-crash`), then
 | `technique.py palette` | Main colours and accent colours of a still, as hex. |
 | `technique.py compare` | Reference stills (left) next to your render (right) at matching moments. |
 | `sfx_probe.py` | Transition sound: jump in level overall / 4-8 kHz / 40-200 Hz, and how long the bright part lasts. |
+| `sfx_lab.py events` | EVERY sound effect in a mix with the voice removed (L-R side): count per minute, kind (swell / pop / hit / hiss), rise and tail in ms, brightness Hz, level vs the voice. Use this first for sound. `--json` saves the list. |
+| `sfx_lab.py analyze / side / audition` | Numbers for single WAVs; side signal at chosen cuts; an audition video (each sound alone, then under the voice at film level, `--gains`) for the ear check. |
 | `compare.py` | Whole-video score (colour, brightness, layout) - rough only; the user's eye is the real test. |
 
 Needs ffmpeg (`C:\ffmpeg\bin`), `python -m yt_dlp`, Pillow.
@@ -57,7 +59,9 @@ Needs ffmpeg (`C:\ffmpeg\bin`), `python -m yt_dlp`, Pillow.
    - `technique.py palette` on a still -> paper, ink, accent hex.
    - Fonts: match the letter shapes (the line-chart study found Poppins); get it free (Google Fonts, OFL)
      and load with `@font-face` - system fonts never match.
-   - Sound: `sfx_probe.py ref.mp4 --at <cut times>`.
+   - Sound: `sfx_lab.py events ref.mp4 --dur 180` (all effects, voice removed), then the same on your render.
+     Match kind, rise, brightness and level vs voice; then make the user listen to `sfx_lab.py audition`.
+   - Footage: strip + `stills`, then mean luma of a still (how dark full-bleed footage is), shot length, what sits on top.
    Write the numbers down as a list before building.
 4. **Rebuild with your own content.** Your words, your voice, real data you pulled
    (`finance-charts`), real photos you found (`image_hunt.py`). Same measured layout, timing, motion.
@@ -75,7 +79,8 @@ Needs ffmpeg (`C:\ffmpeg\bin`), `python -m yt_dlp`, Pillow.
 |---|---|---|
 | Data line chart with photo cards | `tscs-finance-explainer` -> "Technique: data line chart" + `templates\technique-linechart.html` | matched, eye-checked |
 | Topographic paper background | `tscs.js` -> `TSCS.topo` | matched |
-| Transition sound (swish / tick / thud) | `tscs-finance-explainer` -> "Technique: transition sound"; kit in `make_audio.py` | matched by numbers |
+| Transition sound v2: soft kit (swell / pop / hit) | `tscs-finance-explainer` -> "Technique: transition sound"; kit `video-automation\tools\sfx_kit.py`; QUALITY.md section 8 | matched by numbers, waiting for the user's ear |
+| Full-bleed b-roll (drone shot, location chip, name plates) | `tscs-finance-explainer` -> "Technique: full-bleed b-roll"; `footage_hunt.py`; QUALITY.md section 7 | rebuilt 4x in indo-crash v3 |
 | Coastline map opener | `tscs-finance-explainer` -> real-media A | rebuilt |
 | Document card + highlighter | `tscs-finance-explainer` -> "Technique: document card + highlighter" + `templates\technique-document.html` | matched, eye-checked |
 | Dark skyline title scenes | - | to do |
@@ -85,5 +90,9 @@ Needs ffmpeg (`C:\ffmpeg\bin`), `python -m yt_dlp`, Pillow.
 
 - Picture: 1920x1080, 30 fps. Paper `#e9e8e6`, accent `#8b1a2b`, card frame `#c8323e`, ink `#1c1c1c`.
 - Voice: ~155 wpm. Mix: about -16 LUFS.
-- Transitions: bright part ~0.20 s, +19.4 dB in 4-8 kHz, +4.9 dB low body (median of 13 cuts).
+- Transitions (sfx_probe, old method): bright part ~0.20 s, +19.4 dB in 4-8 kHz, +4.9 dB low body (median of 13 cuts).
+- Sound events (sfx_lab events, first 180 s, voice removed): 42.7 per minute. Pops 70 (20 ms rise, 395 Hz, -22.4 dB
+  vs voice), swells 22 (160 ms rise, 240 ms tail, 332 Hz, -13.8 dB), hits 18 (40 ms rise, 760 ms tail, 392 Hz, -18.2 dB).
+- B-roll 170.4-175.0 s: one continuous drone shot, mean luma ~51 (p95 ~103), chip "SCBD, JAKARTA" top-left,
+  name plate at x 170 y 520 (dark name box + red role bar), portrait card right, stamp "QUIT, 30 JAN".
 - Something new appears every 1-2 s; cards enter in ~0.4 s steps.
