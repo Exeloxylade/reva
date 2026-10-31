@@ -77,7 +77,7 @@ Needs ffmpeg (`C:\ffmpeg\bin`), `python -m yt_dlp`, Pillow.
 | Topographic paper background | `tscs.js` -> `TSCS.topo` | matched |
 | Transition sound (swish / tick / thud) | `tscs-finance-explainer` -> "Technique: transition sound"; kit in `make_audio.py` | matched by numbers |
 | Coastline map opener | `tscs-finance-explainer` -> real-media A | rebuilt |
-| Document card + highlighter | - | to do |
+| Document card + highlighter | `tscs-finance-explainer` -> "Technique: document card + highlighter" + `templates\technique-document.html` | matched, eye-checked |
 | Dark skyline title scenes | - | to do |
 | Menu board with flags | - | to do |
 
