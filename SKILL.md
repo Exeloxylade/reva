@@ -140,6 +140,7 @@ model; copy the reference's lines, characters, logos or music; set a video share
 | Full-bleed b-roll (drone shot, location chip, name plates) | `tscs-finance-explainer` -> "Technique: full-bleed b-roll"; `footage_hunt.py`; QUALITY.md section 7 | rebuilt 4x in indo-crash v3 |
 | Coastline map opener | `tscs-finance-explainer` -> real-media A | rebuilt |
 | Document card + highlighter | `tscs-finance-explainer` -> "Technique: document card + highlighter" + `templates\technique-document.html` | matched, eye-checked |
+| Route story map (ship on a dashed glowing route, stop labels with lat/lon, picture cards, full-route "bait" opener) | `map-video` -> "Route story films" + `templates\route-short`, `templates\route-long` | rebuilt from studies `short-nELG`, `short-eXpS`; tested `odyssey-route`, `nutmeg-war` |
 | Dark skyline title scenes | - | to do |
 | Menu board with flags | - | to do |
 
