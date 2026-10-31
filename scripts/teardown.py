@@ -37,22 +37,26 @@ def is_url(s):
 def download(url, outdir, name):
     """Download the video + subtitles with yt-dlp. Returns (mp4_path, info_dict)."""
     base = os.path.join(outdir, name)
+    # -S res:1080 = up to 1080 on the SHORT side, so a vertical Short comes as 1080x1920 (not 608x1080)
+    # subtitles: original-language tracks first; a 429 on a translated track must not stop the video download
     cmd = [sys.executable, "-m", "yt_dlp",
-           "-f", "bv*[height<=1080]+ba/b[height<=1080]/b",
+           "-f", "bv*+ba/b", "-S", "res:1080,fps",
            "--merge-output-format", "mp4",
            "--write-info-json",
-           "--write-auto-subs", "--write-subs", "--sub-langs", "en.*,en",
-           "--convert-subs", "srt",
+           "--write-auto-subs", "--write-subs", "--sub-langs", ".*-orig,en,id",
+           "--convert-subs", "srt", "--ignore-errors",
            "-o", base + ".%(ext)s", url]
     print("  downloading ...")
     r = run(cmd)
-    if r.returncode != 0:
-        print(r.stdout[-2000:]); print(r.stderr[-2000:])
-        raise SystemExit("yt-dlp failed")
     mp4 = base + ".mp4"
     if not os.path.exists(mp4):
         hits = glob.glob(base + ".*")
         mp4 = next((h for h in hits if h.lower().endswith((".mp4", ".mkv", ".webm"))), None)
+    if r.returncode != 0:
+        if not mp4:
+            print(r.stdout[-2000:]); print(r.stderr[-2000:])
+            raise SystemExit("yt-dlp failed")
+        print("  yt-dlp warned (often a subtitle track hit HTTP 429); the video itself downloaded")
     info = {}
     ij = base + ".info.json"
     if os.path.exists(ij):
