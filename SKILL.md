@@ -5,12 +5,37 @@ description: "BRANCH 2 - REVA (Reverse Engineering Video Anything). Learn how an
 
 # REVA: Reverse Engineering Video Anything
 
+## The 3 Fundamental Goals of REVA
+
+1. **Stack & Technical Research (How is it built?):**
+   - Identify the graphics tools, rendering engines, and libraries used by the reference: 3D environment (Three.js, WebGL, Blender), GSAP, Remotion, HyperFrames, Animated Maps, Charting, Exploded Views, or Motion 3D.
+   - Brainstorm and research the technical pipeline.
+   - Verify feasibility by proving our code/tools can achieve the same visual fidelity and smoothness.
+
+2. **Explanatory & Dynamic Grammar (Why does it move?):**
+   - Deconstruct *how* the video explains its subject matter:
+     - Camera movement grammar (context overview, detail mechanism, orthogonal plan dive, A/B failure shake).
+     - Visual dynamics and pacing (how things enter, hold, morph, and exit).
+     - The 3D world and apparatus must be staged **on purpose to make the explanation and physical principles immediately clear**.
+
+3. **Extract Reusable Skills, Not Just Scene Assets (Usable Functional Capability):**
+   - **Never blindly copy-paste the environment or assets of the reference video.** Getting similar pictures or static meshes is useless if it's not a functional, script-driven tool.
+   - The environment and camera must dynamically follow, demonstrate, and prove the script.
+   - When you master the underlying *explanatory capability* (e.g., dynamic apparatus switching, in-world spatial dimensioning, failure simulation), you can rapidly apply it to ANY topic (civil engineering, computer chips, biology, finance, engines).
+
+## Explanatory Grammar & Verification Guidelines
+
+- **The Explanatory Test:** If the 3D scene sits static while narration plays, **the explainer has failed.** The 3D world must actively demonstrate what is spoken at every beat.
+- **Isolate Techniques (One at a time):** Never attempt to clone an entire multi-scene film in one blind pass. Break it into distinct demonstration rigs (e.g., bending jig, stress frame, lap splice, wall ties, formwork).
+- **Verify End-to-End:** A skill is only complete when verified by rendering a working test video with our own script and audio, passing automated checks (motion speed, camera continuity >= 95%, loudness -14 LUFS, SFX density), and passing the side-by-side eye check (`reva compare`).
+- **Living Milestones:** This document and study `recipe.md` files are living guides. Whenever a new technique or explanatory benchmark is achieved, record it in the studies and technique tables below.
+
 Two branches:
 - **Branch 1, Video Making** (`video-automation` is its head, repo `Exeloxylade/video-making-skills`): makes videos.
-  GEM (`gem-3d-world`) lives there too: the 3D world Shorts rebuilt from the Davin Azhar studies below.
+  GEM (`gem-3d-world`) lives there too: the 3D world Shorts rebuilt from the Davin Azhar and technical explainer studies below.
 - **Branch 2, REVA** (this skill, repo `Exeloxylade/reva`): studies a reference and upgrades branch 1.
 
-Rule: REVA learns **techniques** (how a chart draws, how a card enters, how loud a swish is) and
+Rule: REVA learns **techniques** (how a chart draws, how a card enters, how a bending machine operates, how loud a swish is) and
 rebuilds them with **your own script, voice and data**. It does not rebuild a whole reference film
 scene by scene over its own narration. The output of REVA is a better skill, not a copy.
 
@@ -22,8 +47,11 @@ REVA delivers to two places:
 
 ## Quick start: one command, one folder per study
 
-```
-set REVA=%USERPROFILE%\.kiro\crew\skills\reva\reva.cmd
+```cmd
+:: In Antigravity:
+set REVA=%USERPROFILE%\.gemini\config\plugins\reva\skills\reva\reva.cmd
+:: Or from kiro crew:
+:: set REVA=%USERPROFILE%\.kiro\crew\skills\reva\reva.cmd
 %REVA% start finance-doc <url-or-file>                     tear down -> workspace\reva\finance-doc\ref\
 %REVA% add finance-doc document-card --from 87 --to 93     strip at 5 fps + 3 stills + notes.md
 %REVA% stills finance-doc document-card --at 89.5          more stills to measure
@@ -46,6 +74,7 @@ Build the rebuild in Branch 1 (`vm new lab-<technique> --from indo-crash`, or `g
 | `finance-doc` | TSCS-style finance documentary (1920x1080) | `tscs-finance-explainer`, `finance-charts`, `video-automation` (`sfx_kit.py`, `QUALITY.md`) | 6 techniques matched |
 | `davin-kopdes` | Davin Azhar "strategi kelas dunia kopdes" Short, youtube.com/shorts/hKWH77Um7BU (87.9 s) | `gem-3d-world`, style `warung`; `recipe.md` lists 16 techniques | rebuilt, 35 s test film |
 | `davin-lele` | Davin Azhar "bisnis ternak lele" Short, youtube.com/shorts/pYYtBLGfkIw (133.1 s) | `gem-3d-world`, style `kolam` | rebuilt in full, 2m 16s film with its own script (nila) |
+| `redha-beton` | Puckerman Facts (@puckermanefacts) / Redha Maulana 3D civil Short (122.8 s) | `gem-3d-world`, style `konstruksi`; `lib/construct3d.js` | 8 techniques measured, test film `beton-konstruksi` (94.3 s) |
 
 Study folders live in `workspace\reva\<study>\` (not in this repo): reference downloads are not ours to publish.
 

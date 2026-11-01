@@ -143,7 +143,10 @@ def cmd_status(a):
         st = json.load(open(f, encoding="utf-8"))
         print(f"{s}: {st.get('title') or st['source']}  ({st.get('duration')} s, {st.get('wpm')} wpm, {st.get('lufs')} LUFS)")
         for k, t in st["techniques"].items():
-            print(f"   {t['status']:10} {k:24} {t['from']}-{t['to']} s")
+            if isinstance(t, dict):
+                print(f"   {t.get('status', 'unknown'):10} {k:24} {t.get('from', '?')}-{t.get('to', '?')} s")
+            else:
+                print(f"   {'note':10} {k:24} {t}")
         if not st["techniques"]:
             print("   no techniques yet: reva add", s, "<name> --from <s> --to <s>")
 
