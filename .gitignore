@@ -1,2 +1,4 @@
 __pycache__/
 *.pyc
+studies/
+.pytest_cache/

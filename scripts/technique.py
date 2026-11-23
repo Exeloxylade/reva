@@ -1,126 +1,214 @@
 #!/usr/bin/env python3
-"""technique.py - study ONE technique of a reference video and check your rebuild against it.
+"""technique.py - inspect one reference technique (strip, stills, palette, side-by-side compare).
 
-Subcommands (all write into --out):
-  strip    frames of a time range at N fps, tiled into one sheet: see how things ENTER and MOVE
-           python technique.py strip ref.mp4 --from 35 --to 59 --fps 5 --out lab\\linechart\\theirs
-  stills   full-size PNG frames at chosen seconds: measure pixels, sizes, positions
-           python technique.py stills ref.mp4 --at 44,56 --out lab\\linechart\\theirs
-  palette  the main colours of a still (hex + share), to copy paper / ink / accent exactly
-           python technique.py palette lab\\linechart\\theirs\\full_44.png --n 8
-  compare  reference stills next to your render at matching moments, one sheet for the eye check
-           python technique.py compare --ref lab\\linechart\\theirs\\full_44.png,lab\\linechart\\theirs\\full_56.png \\
-                 --mine renders\\linechart.mp4 --mine-at 12.5,25 --out lab\\linechart
-Stdlib + ffmpeg (+ Pillow for palette). Sheets are JPEGs you open with the image viewer.
+Subcommands:
+  strip    frames of a time range at N fps, tiled with timestamps into _strip_<from>-<to>.jpg
+  stills   full-size PNG frames at chosen seconds (full_<t>.png)
+  palette  main hex colors + saturated accent hex colors from 1+ stills
+  compare  reference stills (left) next to your render (right) -> compare.jpg
 """
-import argparse, glob, os, subprocess, sys
+import argparse
+import glob
+import json
+import math
+import os
 
-FF = r"C:\ffmpeg\bin\ffmpeg.exe"
+try:
+    from . import _common as C
+except ImportError:
+    import _common as C
 
 
 def ff(args):
-    r = subprocess.run([FF, "-hide_banner", "-v", "error", "-y"] + args, capture_output=True, text=True)
-    if r.returncode:
-        sys.exit(r.stderr[-800:])
+    r = C.run_cmd([C.find_ffmpeg(), "-hide_banner", "-v", "error", "-y"] + args)
+    if r.returncode != 0:
+        raise SystemExit(r.stderr[-800:] or "ffmpeg command failed")
 
 
 def strip(a):
+    from PIL import Image, ImageDraw
+
+    if a.to <= a.from_:
+        raise SystemExit(f"--to ({a.to}) must be greater than --from ({a.from_})")
+    fps_val = float(a.fps)
+    if fps_val <= 0:
+        raise SystemExit("--fps must be > 0")
+
     os.makedirs(a.out, exist_ok=True)
     for f in glob.glob(os.path.join(a.out, "s*.jpg")):
         os.remove(f)
-    ff(["-ss", str(a.from_), "-t", str(a.to - a.from_), "-i", a.video, "-vf", "fps=%s,scale=320:-2" % a.fps,
-        "-q:v", "3", os.path.join(a.out, "s%04d.jpg")])
-    n = len(glob.glob(os.path.join(a.out, "s*.jpg")))
-    cols = 8
-    rows = (n + cols - 1) // cols
-    dst = os.path.join(a.out, "_strip_%g-%g.jpg" % (a.from_, a.to))
-    ff(["-framerate", "1", "-i", os.path.join(a.out, "s%04d.jpg"), "-vf", "tile=%dx%d:padding=2" % (cols, rows),
-        "-frames:v", "1", dst])
-    print("%d frames (%.2f s apart) -> %s" % (n, 1 / float(a.fps), dst))
-    print("read it row by row: each step is one frame; count frames to time an entry or a move.")
+
+    ff([
+        "-ss", str(a.from_), "-t", str(a.to - a.from_), "-i", a.video,
+        "-vf", f"fps={a.fps},scale=360:-2", "-q:v", "3",
+        os.path.join(a.out, "s%04d.jpg"),
+    ])
+    frames = sorted(glob.glob(os.path.join(a.out, "s*.jpg")))
+    if not frames:
+        raise SystemExit("no frames extracted for strip range")
+
+    try:
+        with Image.open(frames[0]) as sample:
+            w0, h0 = sample.size
+        tw = 240 if h0 > w0 else 320
+        th = max(90, int(round(tw * h0 / max(w0, 1))))
+        cols = min(8, len(frames))
+        rows = math.ceil(len(frames) / cols)
+        pad = 4
+        canvas = Image.new("RGB", (cols * tw + (cols + 1) * pad, rows * th + (rows + 1) * pad), (16, 16, 16))
+        draw = ImageDraw.Draw(canvas)
+        font = C.load_font(13, bold=True)
+
+        for idx, fpath in enumerate(frames):
+            r_idx, c_idx = divmod(idx, cols)
+            x = pad + c_idx * (tw + pad)
+            y = pad + r_idx * (th + pad)
+            with Image.open(fpath) as im:
+                tile = im.convert("RGB").resize((tw, th), Image.Resampling.LANCZOS)
+            canvas.paste(tile, (x, y))
+            t_sec = a.from_ + idx / fps_val
+            C.draw_badge(draw, (x + 4, y + 4), f"{t_sec:.1f}s", font, bg=(18, 18, 18), fg=(255, 255, 255), pad_x=4, pad_y=2)
+
+        dst = os.path.join(a.out, f"_strip_{C.norm_ts(a.from_)}-{C.norm_ts(a.to)}.jpg")
+        canvas.save(dst, quality=88)
+        print(f"{len(frames)} frames ({1.0 / fps_val:.2f} s apart) -> {dst}")
+        print("read it row by row: each step is one frame; count frames to time an entry or move.")
+    finally:
+        if not a.keep_frames:
+            for f in frames:
+                if os.path.exists(f):
+                    os.remove(f)
 
 
 def stills(a):
     os.makedirs(a.out, exist_ok=True)
-    for t in [x for x in a.at.split(",") if x]:
-        dst = os.path.join(a.out, "full_%s.png" % t.replace(".", "_"))
-        ff(["-ss", t, "-i", a.video, "-frames:v", "1", dst])
-        print("still", t, "->", dst)
+    raw_times = [x.strip() for x in a.at.split(",") if x.strip()]
+    if not raw_times:
+        raise SystemExit("provide at least one timestamp with --at")
+    out_paths = []
+    for raw in raw_times:
+        norm = C.norm_ts(raw)
+        dst = os.path.join(a.out, f"full_{C.ts_token(raw)}.png")
+        ff(["-ss", norm, "-i", a.video, "-frames:v", "1", dst])
+        print(f"still {norm} -> {dst}")
+        out_paths.append(dst)
+    return out_paths
 
 
 def palette(a):
-    from PIL import Image
-    import colorsys
-    im = Image.open(a.image).convert("RGB").resize((480, 270))
-    k = a.n * 4                                   # quantise finely, then report the biggest
-    q = im.quantize(colors=k, method=Image.Quantize.MEDIANCUT)
-    pal = q.getpalette()[: k * 3]
-    counts = sorted(q.getcolors(), reverse=True)
-    total = sum(c for c, _ in counts)
-    rows = []
-    for c, i in counts:
-        r, g, b = pal[i * 3: i * 3 + 3]
-        h, l, s = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
-        rows.append((c / total, "#%02x%02x%02x" % (r, g, b), s, l))
+    pal = C.extract_palette(a.images, n=a.n)
+    if not pal["main"]:
+        raise SystemExit("no readable images found for palette")
     print("main colours (paper, ink, greys):")
-    for share, hx, s, l in rows[: a.n]:
-        print("  %s  %5.1f%%" % (hx, 100 * share))
-    # accents: thin lines and small chips vanish in a merged palette, so scan every pixel instead
-    full = Image.open(a.image).convert("RGB").resize((960, 540))
-    buckets = {}
-    for (r, g, b) in full.getdata():
-        h, l, s = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
-        if s > 0.35 and 0.12 < l < 0.85:
-            k = (r // 24, g // 24, b // 24)
-            n, sr, sg, sb = buckets.get(k, (0, 0, 0, 0))
-            buckets[k] = (n + 1, sr + r, sg + g, sb + b)
-    px = 960 * 540
+    for row in pal["main"]:
+        print(f"  {row['hex']}  {row['share']:5.1f}%")
     print("accent colours (saturated, any size):")
-    for n, sr, sg, sb in sorted(buckets.values(), reverse=True)[:4]:
-        if n / px < 0.0005:
-            break
-        print("  #%02x%02x%02x  %5.2f%%" % (sr // n, sg // n, sb // n, 100 * n / px))
+    for row in pal["accents"]:
+        print(f"  {row['hex']}  {row['share']:5.2f}%")
+    if a.json:
+        with open(a.json, "w", encoding="utf-8") as fp:
+            json.dump(pal, fp, indent=2)
+        print("palette ->", a.json)
+
+
+def _scale_to_width(im, target_w):
+    from PIL import Image
+
+    w, h = im.size
+    if w == target_w:
+        return im
+    new_h = max(2, int(round(h * target_w / max(w, 1))))
+    return im.resize((target_w, new_h), Image.Resampling.LANCZOS)
 
 
 def compare(a):
+    from PIL import Image, ImageDraw
+
     os.makedirs(a.out, exist_ok=True)
-    refs = [x for x in a.ref.split(",") if x]
-    mine = []
-    for i, t in enumerate([x for x in a.mine_at.split(",") if x]):
-        p = os.path.join(a.out, "_mine_%d.png" % i)
-        ff(["-ss", t, "-i", a.mine, "-frames:v", "1", p])
-        mine.append(p)
-    if len(mine) != len(refs):
-        sys.exit("give as many --mine-at times as --ref stills")
-    rows = []
-    for i, (r, m) in enumerate(zip(refs, mine)):
-        row = os.path.join(a.out, "_row_%d.jpg" % i)
-        ff(["-i", r, "-i", m, "-filter_complex", "[0]scale=960:-2[a];[1]scale=960:-2[b];[a][b]hstack", row])
-        rows.append(row)
-    dst = os.path.join(a.out, "compare.jpg")
-    if len(rows) == 1:
-        os.replace(rows[0], dst)
-    else:
-        args = []
-        for r in rows:
-            args += ["-i", r]
-        ff(args + ["-filter_complex", "".join("[%d]" % i for i in range(len(rows))) + "vstack=inputs=%d" % len(rows), dst])
-        for r in rows:
-            os.remove(r)
-    for m in mine:
-        os.remove(m)
-    print("reference LEFT, yours RIGHT ->", dst)
+    refs = [x.strip() for x in a.ref.split(",") if x.strip()]
+    mine_times = [C.norm_ts(x) for x in a.mine_at.split(",") if x.strip()]
+    if len(mine_times) != len(refs):
+        raise SystemExit(f"give as many --mine-at times ({len(mine_times)}) as --ref stills ({len(refs)})")
+
+    mine_imgs = []
+    try:
+        for i, t in enumerate(mine_times):
+            p = os.path.join(a.out, f"_mine_{i}.png")
+            ff(["-ss", t, "-i", a.mine, "-frames:v", "1", p])
+            mine_imgs.append(p)
+
+        col_w = 960
+        hdr_h = 34
+        gap = 8
+        font = C.load_font(16, bold=True)
+        row_imgs = []
+
+        for r_path, m_path, mt in zip(refs, mine_imgs, mine_times):
+            if not os.path.exists(r_path):
+                raise SystemExit(f"reference still not found: {r_path}")
+            with Image.open(r_path) as rim:
+                r_scaled = _scale_to_width(rim.convert("RGB"), col_w)
+            with Image.open(m_path) as mim:
+                m_scaled = _scale_to_width(mim.convert("RGB"), col_w)
+
+            body_h = max(r_scaled.height, m_scaled.height)
+            row_w = col_w * 2 + gap
+            row_canvas = Image.new("RGB", (row_w, hdr_h + body_h), (20, 20, 20))
+            draw = ImageDraw.Draw(row_canvas)
+            C.draw_badge(draw, (8, 5), f"REF  {os.path.basename(r_path)}", font, bg=(36, 36, 36), fg=(240, 240, 240))
+            C.draw_badge(draw, (col_w + gap + 8, 5), f"MINE  @{mt}s", font, bg=(139, 26, 43), fg=(255, 255, 255))
+
+            r_y = hdr_h + (body_h - r_scaled.height) // 2
+            m_y = hdr_h + (body_h - m_scaled.height) // 2
+            row_canvas.paste(r_scaled, (0, r_y))
+            row_canvas.paste(m_scaled, (col_w + gap, m_y))
+            row_imgs.append(row_canvas)
+
+        total_h = sum(r.height for r in row_imgs) + gap * max(0, len(row_imgs) - 1)
+        out_canvas = Image.new("RGB", (col_w * 2 + gap, total_h), (12, 12, 12))
+        y = 0
+        for row in row_imgs:
+            out_canvas.paste(row, (0, y))
+            y += row.height + gap
+
+        dst = os.path.join(a.out, "compare.jpg")
+        out_canvas.save(dst, quality=90)
+        print("reference LEFT, yours RIGHT ->", dst)
+        return dst
+    finally:
+        for m in mine_imgs:
+            if os.path.exists(m):
+                os.remove(m)
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("strip"); p.add_argument("video"); p.add_argument("--from", dest="from_", type=float, required=True)
-    p.add_argument("--to", type=float, required=True); p.add_argument("--fps", default="5"); p.add_argument("--out", required=True)
-    p = sub.add_parser("stills"); p.add_argument("video"); p.add_argument("--at", required=True); p.add_argument("--out", required=True)
-    p = sub.add_parser("palette"); p.add_argument("image"); p.add_argument("--n", type=int, default=8)
-    p = sub.add_parser("compare"); p.add_argument("--ref", required=True); p.add_argument("--mine", required=True)
-    p.add_argument("--mine-at", required=True); p.add_argument("--out", required=True)
+
+    p = sub.add_parser("strip")
+    p.add_argument("video")
+    p.add_argument("--from", dest="from_", type=float, required=True)
+    p.add_argument("--to", type=float, required=True)
+    p.add_argument("--fps", default="5")
+    p.add_argument("--out", required=True)
+    p.add_argument("--keep-frames", action="store_true")
+
+    p = sub.add_parser("stills")
+    p.add_argument("video")
+    p.add_argument("--at", required=True)
+    p.add_argument("--out", required=True)
+
+    p = sub.add_parser("palette")
+    p.add_argument("images", nargs="+")
+    p.add_argument("--n", type=int, default=6)
+    p.add_argument("--json")
+
+    p = sub.add_parser("compare")
+    p.add_argument("--ref", required=True)
+    p.add_argument("--mine", required=True)
+    p.add_argument("--mine-at", required=True)
+    p.add_argument("--out", required=True)
+
     a = ap.parse_args()
     {"strip": strip, "stills": stills, "palette": palette, "compare": compare}[a.cmd](a)
 
