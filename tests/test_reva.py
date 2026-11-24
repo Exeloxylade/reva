@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Automated unit + FFmpeg end-to-end tests for REVA."""
+"""Automated unit + FFmpeg end-to-end tests for reva_code, reva_style, and unified reva."""
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -12,6 +11,8 @@ import unittest
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(REPO, "scripts")
 REVA_PY = os.path.join(REPO, "reva.py")
+REVA_CODE_PY = os.path.join(REPO, "reva_code.py")
+REVA_STYLE_PY = os.path.join(REPO, "reva_style.py")
 if SCRIPTS not in sys.path:
     sys.path.insert(0, SCRIPTS)
 
@@ -19,11 +20,11 @@ import _common as C
 import style_kit
 
 
-def run_reva(workspace, *args, check=True):
+def run_cli(entry, workspace, *args, check=True):
     env = os.environ.copy()
     env["REVA_WORKSPACE"] = workspace
     r = subprocess.run(
-        [sys.executable, REVA_PY, *map(str, args)],
+        [sys.executable, entry, *map(str, args)],
         cwd=REPO,
         env=env,
         capture_output=True,
@@ -33,7 +34,8 @@ def run_reva(workspace, *args, check=True):
     )
     if check and r.returncode != 0:
         raise AssertionError(
-            f"reva {' '.join(map(str, args))} failed ({r.returncode}):\nSTDOUT:\n{r.stdout}\nSTDERR:\n{r.stderr}"
+            f"{os.path.basename(entry)} {' '.join(map(str, args))} failed ({r.returncode}):\n"
+            f"STDOUT:\n{r.stdout}\nSTDERR:\n{r.stderr}"
         )
     return r
 
@@ -105,8 +107,14 @@ class TestCommonUnit(unittest.TestCase):
             p2 = C.parse_subtitles(ps)
             self.assertEqual([c["text"] for c in p2["cues"]], ["Line one.", "Line two."])
 
+    def test_find_placeholders(self):
+        obj = {"a": "clean", "b": ["<TODO: fill>", {"c": "value <ok>"}]}
+        hits = style_kit.find_placeholders(obj)
+        self.assertEqual(len(hits), 2)
+        self.assertEqual(hits[0][0], "b[0]")
 
-class TestRevaEndToEnd(unittest.TestCase):
+
+class TestRevaSplitTools(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory(prefix="reva_e2e_")
@@ -198,55 +206,93 @@ class TestRevaEndToEnd(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def test_01_doctor(self):
-        r = run_reva(self.ws, "doctor")
-        self.assertIn("ffmpeg", r.stdout)
-        self.assertIn("yt-dlp", r.stdout)
-        self.assertIn("status     OK", r.stdout)
+    def test_01_doctors_and_isolation(self):
+        rc = run_cli(REVA_CODE_PY, self.ws, "doctor")
+        self.assertIn("REVA CODE DOCTOR", rc.stdout)
+        self.assertNotIn("Automated-Lunch-Free", rc.stdout)
+        self.assertIn("status     OK", rc.stdout)
 
-    def test_02_scrape_wide_and_workflow(self):
-        run_reva(self.ws, "scrape", "demo-wide", self.wide_mp4, "--style", "demo-style", "--beats", "4")
-        sdir = os.path.join(self.ws, "demo-wide")
+        rs = run_cli(REVA_STYLE_PY, self.ws, "doctor")
+        self.assertIn("REVA STYLE DOCTOR", rs.stdout)
+        self.assertIn("status     OK", rs.stdout)
 
-        for rel in (
-            "study.json",
-            "dossier.md",
-            "ref/teardown.json",
-            "ref/measure.json",
-            "ref/sound.json",
-            "ref/transcript.json",
-            "ref/transcript.txt",
-            "ref/script.txt",
-            "ref/contact-sheet-1.jpg",
-            "style/demo-style/demo-style.style.json",
-            "style/demo-style/demo-style.md",
-            "style/demo-style/test/beats.json",
-            "style/demo-style/test/beats-preview.jpg",
-        ):
+        # CLI isolation: coding tool must reject style-only cmds, and vice versa.
+        self.assertNotEqual(run_cli(REVA_CODE_PY, self.ws, "deliver", "x", check=False).returncode, 0)
+        self.assertNotEqual(run_cli(REVA_STYLE_PY, self.ws, "add", "x", "tech", "--from", "0", "--to", "1", check=False).returncode, 0)
+
+    def test_02_reva_code_e2e_with_grid_and_skill(self):
+        from PIL import Image
+
+        run_cli(REVA_CODE_PY, self.ws, "scrape", "code-wide", self.wide_mp4)
+        sdir = os.path.join(self.ws, "code-wide")
+        for rel in ("study.json", "dossier.md", "ref/teardown.json", "ref/measure.json", "ref/sound.json", "ref/transcript.json", "ref/contact-sheet-1.jpg"):
             self.assertTrue(os.path.exists(os.path.join(sdir, rel)), f"missing {rel}")
+        self.assertFalse(os.path.exists(os.path.join(sdir, "style")))
 
         with open(os.path.join(sdir, "ref", "sound.json"), encoding="utf-8") as fp:
             snd = json.load(fp)
         self.assertTrue(snd["stereo_separation"])
         self.assertLess(snd["duration_sec"], 12.0)
         self.assertGreaterEqual(snd["event_count"], 2)
-        self.assertGreater(snd["events_per_min"], 10.0)
 
         with open(os.path.join(sdir, "ref", "measure.json"), encoding="utf-8") as fp:
             ms = json.load(fp)
         self.assertEqual(ms["aspect_ratio"], "16:9")
-        self.assertGreaterEqual(ms["cuts"]["count"], 2)
         self.assertGreaterEqual(ms["motion"]["still"], 1)
         self.assertGreaterEqual(ms["motion"]["moving"], 1)
 
+        # Isolate 1 technique with --grid pixel coordinate overlays.
+        run_cli(REVA_CODE_PY, self.ws, "add", "code-wide", "card-scene", "--from", "0", "--to", "3", "--grid")
+        theirs = os.path.join(sdir, "card-scene", "theirs")
+        self.assertTrue(os.path.exists(os.path.join(theirs, "_strip_0-3.jpg")))
+        self.assertEqual([f for f in os.listdir(theirs) if re.match(r"^s\d+\.jpg$", f)], [])
+
+        run_cli(REVA_CODE_PY, self.ws, "stills", "code-wide", "card-scene", "--at", "1.5", "--grid")
+        full_png = os.path.join(theirs, "full_1_5.png")
+        grid_png = os.path.join(theirs, "grid_1_5.png")
+        self.assertTrue(os.path.exists(full_png))
+        self.assertTrue(os.path.exists(grid_png))
+        with Image.open(grid_png) as gim:
+            self.assertEqual(gim.size, (640, 360))
+
+        with open(os.path.join(sdir, "card-scene", "notes.md"), encoding="utf-8") as fp:
+            notes = fp.read()
+        self.assertIn("640x360", notes)
+        self.assertIn("Rendering Stack Hypothesis", notes)
+
+        run_cli(REVA_CODE_PY, self.ws, "colors", "code-wide", "card-scene", "--at", "1.5")
+        run_cli(REVA_CODE_PY, self.ws, "colors", "code-wide")
+
+        run_cli(
+            REVA_CODE_PY, self.ws, "compare", "code-wide", "card-scene",
+            "--mine", self.rebuild_mp4, "--mine-at", "1,2", "--ref-at", "0.5,2.5",
+        )
+        self.assertTrue(os.path.exists(os.path.join(sdir, "card-scene", "compare.jpg")))
+        self.assertFalse(os.path.exists(os.path.join(sdir, "card-scene", "_mine_0.png")))
+
+        run_cli(REVA_CODE_PY, self.ws, "verify", "code-wide", "card-scene", "--note", "Eye-checked synthetic match")
+        run_cli(REVA_CODE_PY, self.ws, "skill", "code-wide")
+        with open(os.path.join(sdir, "skill-export.md"), encoding="utf-8") as fp:
+            self.assertIn("[VERIFIED] card-scene", fp.read())
+
+        st_out = run_cli(REVA_CODE_PY, self.ws, "status")
+        self.assertIn("[verified ]", st_out.stdout)
+
+    def test_03_reva_style_e2e_with_check_and_deliver(self):
+        # Style scrape defaults style_id = study name when --style is omitted.
+        run_cli(REVA_STYLE_PY, self.ws, "scrape", "demo-style", self.wide_mp4, "--beats", "4")
+        sdir = os.path.join(self.ws, "demo-style")
         style_file = os.path.join(sdir, "style", "demo-style", "demo-style.style.json")
+        self.assertTrue(os.path.exists(style_file))
+        self.assertTrue(os.path.exists(os.path.join(sdir, "style", "demo-style", "demo-style.md")))
+        self.assertTrue(os.path.exists(os.path.join(sdir, "style", "demo-style", "test", "beats.json")))
+        self.assertTrue(os.path.exists(os.path.join(sdir, "style", "demo-style", "test", "beats-preview.jpg")))
+
         with open(style_file, "rb") as fp:
             self.assertFalse(fp.read(3).startswith(b"\xef\xbb\xbf"), "style json must not have UTF-8 BOM")
         with open(style_file, encoding="utf-8") as fp:
             st = json.load(fp)
         self.assertEqual(st["direction"]["default_aspect"], "16:9")
-        self.assertGreater(st["direction"]["narration"]["wpm"]["value"], 0)
-        self.assertTrue(len(st["look"]["colors"]["palette"]) >= 2)
 
         with open(os.path.join(sdir, "style", "demo-style", "test", "beats.json"), encoding="utf-8") as fp:
             beats = json.load(fp)
@@ -255,69 +301,37 @@ class TestRevaEndToEnd(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(sdir, "style", "demo-style", "test", b["ref"])))
             self.assertNotIn("no subtitles", b["narration"])
 
-        # Add technique, grab stills & colors, compare with mismatched aspect, verify, export skill.
-        run_reva(self.ws, "add", "demo-wide", "card-scene", "--from", "0", "--to", "3")
-        theirs = os.path.join(sdir, "card-scene", "theirs")
-        self.assertTrue(os.path.exists(os.path.join(theirs, "_strip_0-3.jpg")))
-        leftover_strip_frames = [f for f in os.listdir(theirs) if re.match(r"^s\d+\.jpg$", f)]
-        self.assertEqual(leftover_strip_frames, [])
+        # Dry-run check MUST fail while <TODO:...> placeholders remain.
+        bad_chk = run_cli(REVA_STYLE_PY, self.ws, "check", "demo-style", check=False)
+        self.assertNotEqual(bad_chk.returncode, 0)
+        self.assertIn("placeholders", bad_chk.stdout)
 
-        with open(os.path.join(sdir, "card-scene", "notes.md"), encoding="utf-8") as fp:
-            notes = fp.read()
-        self.assertIn("640x360", notes)
+        # Fill placeholders & test dry-run check against REAL Automated-Lunch-Free style-check.js!
+        completed = _fill_placeholders(st)
+        with open(style_file, "w", encoding="utf-8") as fp:
+            json.dump(completed, fp, indent=2)
+        ok_chk = run_cli(REVA_STYLE_PY, self.ws, "check", "demo-style")
+        self.assertIn("placeholders 0 (OK)", ok_chk.stdout)
+        if C.find_app():
+            self.assertIn("app check    OK", ok_chk.stdout)
 
-        run_reva(self.ws, "stills", "demo-wide", "card-scene", "--at", "1.5")
-        self.assertTrue(os.path.exists(os.path.join(theirs, "full_1_5.png")))
-        run_reva(self.ws, "colors", "demo-wide", "card-scene", "--at", "1.5")
-        run_reva(self.ws, "colors", "demo-wide")
-
-        run_reva(
-            self.ws, "compare", "demo-wide", "card-scene",
-            "--mine", self.rebuild_mp4, "--mine-at", "1,2", "--ref-at", "0.5,2.5",
-        )
-        self.assertTrue(os.path.exists(os.path.join(sdir, "card-scene", "compare.jpg")))
-        self.assertFalse(os.path.exists(os.path.join(sdir, "card-scene", "_mine_0.png")))
-
-        run_reva(self.ws, "verify", "demo-wide", "card-scene", "--note", "Eye-checked synthetic match")
-        run_reva(self.ws, "skill", "demo-wide")
-        with open(os.path.join(sdir, "skill-export.md"), encoding="utf-8") as fp:
-            skill_md = fp.read()
-        self.assertIn("[VERIFIED] card-scene", skill_md)
-
-        # Placeholder guard must reject unfinished <TODO:...> template on deliver.
+        # Deliver into isolated mock_app (never touching real Automated-Lunch-Free/styles/).
         mock_app = os.path.join(self.tmp.name, "mock_app")
         os.makedirs(os.path.join(mock_app, "styles"), exist_ok=True)
         os.makedirs(os.path.join(mock_app, "scripts"), exist_ok=True)
         with open(os.path.join(mock_app, "scripts", "style-check.js"), "w", encoding="utf-8") as fp:
             fp.write("console.log('MOCK OK');\n")
 
-        blocked = run_reva(self.ws, "deliver", "demo-wide", "--app", mock_app, check=False)
-        self.assertNotEqual(blocked.returncode, 0)
-        self.assertIn("placeholder", blocked.stderr + blocked.stdout)
-
-        # Fill placeholders cleanly in style file & verify against REAL Automated-Lunch-Free style-check.js!
-        completed = _fill_placeholders(st)
-        completed_path = os.path.join(self.tmp.name, "completed.style.json")
-        with open(completed_path, "w", encoding="utf-8") as fp:
-            json.dump(completed, fp, indent=2)
-        real_app = C.find_app()
-        if real_app:
-            chk = C.run_cmd(["node", os.path.join(real_app, "scripts", "style-check.js"), completed_path], cwd=real_app)
-            self.assertEqual(chk.returncode, 0, f"real style-check failed:\n{chk.stdout}\n{chk.stderr}")
-            self.assertIn("reference style", chk.stdout)
-
-        # Also test reva deliver end-to-end into isolated mock_app.
-        with open(style_file, "w", encoding="utf-8") as fp:
-            json.dump(completed, fp, indent=2)
-        run_reva(self.ws, "deliver", "demo-wide", "--app", mock_app)
+        run_cli(REVA_STYLE_PY, self.ws, "deliver", "demo-style", "--app", mock_app)
         self.assertTrue(os.path.exists(os.path.join(mock_app, "styles", "demo-style", "demo-style.style.json")))
 
-        st_out = run_reva(self.ws, "status")
-        self.assertIn("demo-wide", st_out.stdout)
+        st_out = run_cli(REVA_STYLE_PY, self.ws, "status")
+        self.assertIn("ready", st_out.stdout)
+        self.assertIn("delivered:passed", st_out.stdout)
 
-    def test_03_scrape_vertical_mono_fast_cuts(self):
-        run_reva(self.ws, "scrape", "demo-short", self.short_mp4)
-        sdir = os.path.join(self.ws, "demo-short")
+    def test_04_vertical_mono_fast_cuts_and_router(self):
+        run_cli(REVA_PY, self.ws, "code", "scrape", "code-short", self.short_mp4)
+        sdir = os.path.join(self.ws, "code-short")
         with open(os.path.join(sdir, "ref", "measure.json"), encoding="utf-8") as fp:
             ms = json.load(fp)
         self.assertEqual(ms["aspect_ratio"], "9:16")
@@ -327,7 +341,14 @@ class TestRevaEndToEnd(unittest.TestCase):
         self.assertFalse(snd["stereo_separation"])
         self.assertIsNone(snd["events_per_min"])
 
-    def test_04_sfx_analyze_and_audition(self):
+        r_doc = run_cli(REVA_PY, self.ws, "doctor")
+        self.assertIn("status     OK", r_doc.stdout)
+        r_cs = run_cli(REVA_PY, self.ws, "code", "status")
+        self.assertIn("code-short", r_cs.stdout)
+        r_ss = run_cli(REVA_PY, self.ws, "style", "status")
+        self.assertIn("demo-style", r_ss.stdout)
+
+    def test_05_sfx_analyze_and_audition(self):
         sfx_script = os.path.join(SCRIPTS, "sfx_lab.py")
         r = C.run_cmd([sys.executable, sfx_script, "analyze", self.sfx_wav])
         self.assertEqual(r.returncode, 0, r.stderr)

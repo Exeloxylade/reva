@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import shutil
 import textwrap
 
 try:
@@ -134,7 +135,53 @@ def find_placeholders(obj, prefix=""):
     return hits
 
 
-def write_dossier(study_dir, study_data=None):
+def resolve_style_file(study_dir, style_id=None):
+    """Locate <study>/style/<id>/<id>.style.json cleanly."""
+    if style_id:
+        p = os.path.join(study_dir, "style", style_id, f"{style_id}.style.json")
+        if not os.path.exists(p):
+            raise SystemExit(f"style not found: {p} (run scaffold first)")
+        return p
+    hits = sorted(glob.glob(os.path.join(study_dir, "style", "*", "*.style.json")))
+    if not hits:
+        raise SystemExit(f"no style files in {os.path.join(study_dir, 'style')} (run scaffold first)")
+    if len(hits) > 1:
+        names = ", ".join(os.path.basename(os.path.dirname(h)) for h in hits)
+        raise SystemExit(f"multiple styles found ({names}); pass --style <id>")
+    return hits[0]
+
+
+def check_style_local(style_json_path, app_dir=None):
+    """Validate UTF-8 BOM, leftover <...> placeholders, and Automated-Lunch-Free style-check.js."""
+    with open(style_json_path, "rb") as fp:
+        has_bom = fp.read(3).startswith(b"\xef\xbb\xbf")
+    with open(style_json_path, encoding="utf-8-sig") as fp:
+        data = json.load(fp)
+    sid = data.get("id") or os.path.basename(os.path.dirname(style_json_path))
+    placeholders = find_placeholders(data)
+
+    ran = False
+    ok = True
+    output = ""
+    node_bin = shutil.which("node")
+    if app_dir and node_bin:
+        ran = True
+        r = C.run_cmd([node_bin, os.path.join(app_dir, "scripts", "style-check.js"), style_json_path], cwd=app_dir)
+        ok = (r.returncode == 0)
+        output = "\n".join(x for x in (r.stdout.strip(), r.stderr.strip()) if x)
+
+    return {
+        "style_id": sid,
+        "style_file": style_json_path,
+        "bom": has_bom,
+        "placeholders": placeholders,
+        "style_check_ran": ran,
+        "style_check_ok": ok,
+        "style_check_output": output,
+    }
+
+
+def write_dossier(study_dir, study_data=None, focus="all"):
     """Compile ref/teardown.json, measure.json, sound.json, transcript.json into dossier.md."""
     study = study_data or _read_json(os.path.join(study_dir, "study.json")) or {}
     td = _read_json(os.path.join(study_dir, "ref", "teardown.json")) or {}
@@ -186,45 +233,57 @@ def write_dossier(study_dir, study_data=None):
     if pal.get("main"):
         lines.append("- **Main colors:** " + ", ".join(f"`{c['hex']}` ({c['share']}%)" for c in pal["main"]))
     else:
-        lines.append("- **Main colors:** not measured yet (`reva measure` or `reva colors`)")
+        lines.append("- **Main colors:** not measured yet (`measure` or `colors`)")
     if pal.get("accents"):
         lines.append("- **Saturated accents:** " + ", ".join(f"`{c['hex']}` ({c['share']}%)" for c in pal["accents"]))
 
-    lines += ["", "## 4. Sound & SFX Profile"]
-    if not snd:
-        lines.append("- Not probed yet (`reva sound <study>`).")
-    elif not snd.get("stereo_separation"):
-        lines.append(f"- **Note:** {snd.get('note') or 'Stereo L-R separation unavailable (mono/dual-mono)'}")
-    else:
-        lines.append(
-            f"- **Stereo events:** {snd.get('event_count')} events in {snd.get('duration_sec')} s = **{snd.get('events_per_min')}/min** "
-            f"(mid/side ratio {snd.get('mid_to_side_db')} dB)"
-        )
-        for kind, row in (snd.get("summary_by_kind") or {}).items():
+    if focus in ("all", "code") or snd:
+        lines += ["", "## 4. Sound & SFX Profile"]
+        if not snd:
+            lines.append("- Not probed yet (`reva-code sound <study>`).")
+        elif not snd.get("stereo_separation"):
+            lines.append(f"- **Note:** {snd.get('note') or 'Stereo L-R separation unavailable (mono/dual-mono)'}")
+        else:
             lines.append(
-                f"  - `{kind}`: n={row['count']}, rise {row['median_rise_ms']} ms, tail {row['median_tail_ms']} ms, "
-                f"bright {row['median_centroid_hz']} Hz, harsh {row['median_harsh_pct']}%, vs voice {row['median_vs_voice_db']:+.1f} dB"
+                f"- **Stereo events:** {snd.get('event_count')} events in {snd.get('duration_sec')} s = **{snd.get('events_per_min')}/min** "
+                f"(mid/side ratio {snd.get('mid_to_side_db')} dB)"
             )
+            for kind, row in (snd.get("summary_by_kind") or {}).items():
+                lines.append(
+                    f"  - `{kind}`: n={row['count']}, rise {row['median_rise_ms']} ms, tail {row['median_tail_ms']} ms, "
+                    f"bright {row['median_centroid_hz']} Hz, harsh {row['median_harsh_pct']}%, vs voice {row['median_vs_voice_db']:+.1f} dB"
+                )
 
-    lines += ["", "## 5. Visual Artifacts & Techniques"]
+    lines += ["", "## 5. Visual Artifacts & Outputs"]
     sheets = sorted(glob.glob(os.path.join(study_dir, "ref", "contact-sheet-*.jpg")))
     if sheets:
         lines.append(f"- **Contact sheets ({len(sheets)}):** " + ", ".join(f"`ref/{os.path.basename(s)}`" for s in sheets))
+
     techs = study.get("techniques") or {}
-    if techs:
-        for k, t in techs.items():
-            if isinstance(t, dict):
-                cmp_exists = os.path.exists(os.path.join(study_dir, k, "compare.jpg"))
-                lines.append(
-                    f"- **Technique `{k}`:** status `{t.get('status', 'unknown')}` | {t.get('from', '?')}-{t.get('to', '?')} s | "
-                    f"compare.jpg: {'yes' if cmp_exists else 'no'}"
-                )
-    else:
-        lines.append("- No isolated techniques yet (`reva add <study> <name> --from <s> --to <s>`).")
+    if focus in ("all", "code") or techs:
+        if techs:
+            for k, t in techs.items():
+                if isinstance(t, dict):
+                    cmp_exists = os.path.exists(os.path.join(study_dir, k, "compare.jpg"))
+                    lines.append(
+                        f"- **Technique `{k}`:** status `{t.get('status', 'unknown')}` | {t.get('from', '?')}-{t.get('to', '?')} s | "
+                        f"compare.jpg: {'yes' if cmp_exists else 'no'}"
+                    )
+        elif focus in ("all", "code"):
+            lines.append("- No isolated techniques yet (`reva-code add <study> <name> --from <s> --to <s> --grid`).")
 
     styles = sorted(glob.glob(os.path.join(study_dir, "style", "*", "*.style.json")))
-    if styles:
-        lines.append("- **Styles in study:** " + ", ".join(f"`{os.path.basename(os.path.dirname(s))}`" for s in styles))
+    if focus in ("all", "style") or styles:
+        if styles:
+            for sf in styles:
+                sid = os.path.basename(os.path.dirname(sf))
+                sdata = _read_json(sf) or {}
+                ph_cnt = len(find_placeholders(sdata))
+                b_path = os.path.join(os.path.dirname(sf), "test", "beats.json")
+                beats = _read_json(b_path) if os.path.exists(b_path) else []
+                lines.append(f"- **Prompt style `{sid}`:** {ph_cnt} placeholders left | {len(beats)} golden beats")
+        elif focus == "style":
+            lines.append("- No prompt style scaffolded yet (`reva-style scaffold <study>`).")
 
     cues = tr.get("cues") or []
     lines += ["", "## 6. Transcript Preview"]

@@ -80,6 +80,44 @@ def strip(a):
                     os.remove(f)
 
 
+def render_grid_still(src_png, dst_png):
+    """Overlay a 100px/200px pixel coordinate grid and center crosshair onto src_png."""
+    from PIL import Image, ImageDraw
+
+    with Image.open(src_png) as im:
+        base = im.convert("RGBA")
+    w, h = base.size
+    overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    font = C.load_font(12, bold=True)
+
+    for x in range(100, w, 100):
+        major = (x % 200 == 0)
+        draw.line([(x + 1, 0), (x + 1, h)], fill=(0, 0, 0, 95 if major else 50), width=1)
+        draw.line([(x, 0), (x, h)], fill=(255, 255, 255, 135 if major else 70), width=1)
+        if major or w <= 900:
+            C.draw_badge(draw, (x + 3, 4), str(x), font, bg=(18, 18, 18, 190), fg=(255, 255, 255, 240), pad_x=3, pad_y=1)
+
+    for y in range(100, h, 100):
+        major = (y % 200 == 0)
+        draw.line([(0, y + 1), (w, y + 1)], fill=(0, 0, 0, 95 if major else 50), width=1)
+        draw.line([(0, y), (w, y)], fill=(255, 255, 255, 135 if major else 70), width=1)
+        if major or h <= 900:
+            C.draw_badge(draw, (4, y + 3), str(y), font, bg=(18, 18, 18, 190), fg=(255, 255, 255, 240), pad_x=3, pad_y=1)
+
+    cx, cy = w // 2, h // 2
+    draw.line([(cx, 0), (cx, h)], fill=(200, 50, 62, 165), width=1)
+    draw.line([(0, cy), (w, cy)], fill=(200, 50, 62, 165), width=1)
+
+    res_label = f"{w}x{h}"
+    rbox = draw.textbbox((0, 0), res_label, font=font)
+    rw = (rbox[2] - rbox[0]) + 10
+    C.draw_badge(draw, (max(4, w - rw - 6), 4), res_label, font, bg=(139, 26, 43, 220), fg=(255, 255, 255, 255), pad_x=5, pad_y=2)
+
+    Image.alpha_composite(base, overlay).convert("RGB").save(dst_png)
+    return dst_png
+
+
 def stills(a):
     os.makedirs(a.out, exist_ok=True)
     raw_times = [x.strip() for x in a.at.split(",") if x.strip()]
@@ -88,10 +126,15 @@ def stills(a):
     out_paths = []
     for raw in raw_times:
         norm = C.norm_ts(raw)
-        dst = os.path.join(a.out, f"full_{C.ts_token(raw)}.png")
+        tok = C.ts_token(raw)
+        dst = os.path.join(a.out, f"full_{tok}.png")
         ff(["-ss", norm, "-i", a.video, "-frames:v", "1", dst])
         print(f"still {norm} -> {dst}")
         out_paths.append(dst)
+        if getattr(a, "grid", False):
+            gdst = os.path.join(a.out, f"grid_{tok}.png")
+            render_grid_still(dst, gdst)
+            print(f"grid  {norm} -> {gdst}")
     return out_paths
 
 
@@ -197,6 +240,7 @@ def main():
     p.add_argument("video")
     p.add_argument("--at", required=True)
     p.add_argument("--out", required=True)
+    p.add_argument("--grid", action="store_true")
 
     p = sub.add_parser("palette")
     p.add_argument("images", nargs="+")
