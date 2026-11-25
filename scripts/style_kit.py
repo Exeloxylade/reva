@@ -11,8 +11,10 @@ import textwrap
 
 try:
     from . import _common as C
+    from . import lab_engine
 except ImportError:
     import _common as C
+    import lab_engine
 
 _PLACEHOLDER_RE = re.compile(r"<[^>\n]{2,}>")
 
@@ -265,9 +267,19 @@ def write_dossier(study_dir, study_data=None, focus="all"):
             for k, t in techs.items():
                 if isinstance(t, dict):
                     cmp_exists = os.path.exists(os.path.join(study_dir, k, "compare.jpg"))
+                    extras = []
+                    if t.get("reused_from"):
+                        extras.append(f"reused `{t['reused_from']}`")
+                    if t.get("winning_engine"):
+                        extras.append(f"winner `{t['winning_engine']}`")
+                    elif t.get("trials"):
+                        extras.append(f"trials `{','.join(sorted(t['trials'].keys()))}`")
+                    if t.get("promoted_pattern"):
+                        extras.append(f"promoted `{t['promoted_pattern']}`")
+                    tail = (" | " + " | ".join(extras)) if extras else ""
                     lines.append(
                         f"- **Technique `{k}`:** status `{t.get('status', 'unknown')}` | {t.get('from', '?')}-{t.get('to', '?')} s | "
-                        f"compare.jpg: {'yes' if cmp_exists else 'no'}"
+                        f"compare.jpg: {'yes' if cmp_exists else 'no'}{tail}"
                     )
         elif focus in ("all", "code"):
             lines.append("- No isolated techniques yet (`reva-code add <study> <name> --from <s> --to <s> --grid`).")
@@ -285,8 +297,31 @@ def write_dossier(study_dir, study_data=None, focus="all"):
         elif focus == "style":
             lines.append("- No prompt style scaffolded yet (`reva-style scaffold <study>`).")
 
+    lines += ["", "## 6. Lab Engine Recommendations & Reusable Patterns"]
+    try:
+        rec = lab_engine.recommend_for_study(study_dir)
+        pats = rec.get("matching_patterns") or []
+        cands = rec.get("ready_candidates") or []
+        ups = rec.get("upgrade_candidates") or []
+        if pats:
+            lines.append("- **Matching reusable patterns:** " + ", ".join(
+                f"`{p['id']}` (`{p['winning_engine']}`)" for p in pats[:3]
+            ))
+        if cands:
+            lines.append("- **Ready candidate engines:** " + ", ".join(
+                f"`{e['id']}`" + (f" ({e['_reasons'][0]})" if e.get("_reasons") else "") for e in cands[:3]
+            ))
+        if ups:
+            lines.append("- **Optional upgrade engines:** " + ", ".join(
+                f"`{e['id']}` [{e['status']}]" for e in ups[:2]
+            ))
+        if not pats and not cands:
+            lines.append("- Run `reva-lab engines` and `reva-lab recommend <study>` to inspect lab capabilities.")
+    except Exception:
+        lines.append("- Lab registry unavailable.")
+
     cues = tr.get("cues") or []
-    lines += ["", "## 6. Transcript Preview"]
+    lines += ["", "## 7. Transcript Preview"]
     if cues:
         for c in cues[:20]:
             lines.append(f"- `[{C.fmt_ts(c['start'])}]` {c['text']}")
@@ -635,11 +670,17 @@ def export_skill(study_dir, study_data=None, out_path=None):
             with open(notes_path, encoding="utf-8") as fp:
                 notes_body = fp.read().strip()
 
+        cmp_files = sorted(glob.glob(os.path.join(study_dir, k, "compare*.jpg")))
         tech_sections.append({
             "name": k,
             "badge": badge,
             "range": f"{t_dict.get('from', '?')}-{t_dict.get('to', '?')} s",
             "verify_note": t_dict.get("verify_note", ""),
+            "reused_from": t_dict.get("reused_from", ""),
+            "winning_engine": t_dict.get("winning_engine", ""),
+            "rejected_engines": t_dict.get("rejected_engines") or [],
+            "promoted_pattern": t_dict.get("promoted_pattern", ""),
+            "compare_files": [os.path.basename(c) for c in cmp_files],
             "has_cmp": has_cmp,
             "notes": notes_body,
         })
@@ -684,9 +725,24 @@ def export_skill(study_dir, study_data=None, out_path=None):
     if tech_sections:
         for ts in tech_sections:
             lines.append(f"### [{ts['badge']}] {ts['name']} ({ts['range']})")
+            if ts.get("reused_from"):
+                lines.append(f"- **Reused baseline pattern:** `{ts['reused_from']}`")
+            if ts.get("winning_engine"):
+                lines.append(f"- **Winning engine:** `{ts['winning_engine']}`")
+            if ts.get("rejected_engines"):
+                rej_txt = ", ".join(
+                    f"`{r.get('engine')}` ({r.get('reason')})" if isinstance(r, dict) else f"`{r}`"
+                    for r in ts["rejected_engines"]
+                )
+                lines.append(f"- **Rejected engines:** {rej_txt}")
+            if ts.get("promoted_pattern"):
+                lines.append(f"- **Promoted to library:** `{ts['promoted_pattern']}`")
             if ts["verify_note"]:
                 lines.append(f"- **Verification note:** {ts['verify_note']}")
-            lines.append(f"- **Compare sheet:** `{ts['name']}/compare.jpg`" if ts["has_cmp"] else "- **Compare sheet:** missing")
+            if ts.get("compare_files"):
+                lines.append("- **Compare sheets:** " + ", ".join(f"`{ts['name']}/{f}`" for f in ts["compare_files"]))
+            else:
+                lines.append("- **Compare sheet:** missing")
             lines += ["", "```markdown", ts["notes"], "```", ""]
     else:
         lines.append("- No techniques added yet.")

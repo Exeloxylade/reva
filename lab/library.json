@@ -1,0 +1,197 @@
+{
+  "schema": "reva-lab-library",
+  "version": 1,
+  "patterns": [
+    {
+      "id": "animated-route-map",
+      "category": "animated-map",
+      "tags": ["map", "animated-map", "route", "geography", "trail", "lat-lon", "travel", "geopolitics"],
+      "winning_engine": "animated-map",
+      "secondary_engines": ["hyperframes-2d"],
+      "rejected_engines": [],
+      "target_skill": "map-video",
+      "template": "templates/route-short, templates/route-long",
+      "summary": "Glowing route path across lat/lon stops with bait opener and continuous map camera.",
+      "baseline": {
+        "notes": "Proven across Odyssey Shorts and full route explainers."
+      },
+      "used_in": ["odyssey-route", "nutmeg-war"],
+      "updated_at": "2026-11-01"
+    },
+    {
+      "id": "coastline-map-opener",
+      "category": "animated-map",
+      "tags": ["map", "animated-map", "coastline", "opener", "real-media", "documentary"],
+      "winning_engine": "hyperframes-2d",
+      "secondary_engines": ["animated-map"],
+      "rejected_engines": [],
+      "target_skill": "tscs-finance-explainer",
+      "template": "real-media A",
+      "summary": "High-contrast coastline map opener integrated into documentary paper palette.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "fps": 30
+      },
+      "used_in": ["finance-doc"],
+      "updated_at": "2026-10-31"
+    },
+    {
+      "id": "data-line-chart-photo-cards",
+      "category": "data-chart",
+      "tags": ["chart", "line-chart", "d3", "finance", "photo-cards", "data", "documentary"],
+      "winning_engine": "d3-charts",
+      "secondary_engines": ["hyperframes-2d"],
+      "rejected_engines": [],
+      "target_skill": "tscs-finance-explainer",
+      "template": "templates/technique-linechart.html",
+      "summary": "Animated drawing line chart paired with tilted photo cards on off-white topographic paper.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "fps": 30,
+        "wpm": 155,
+        "palette": ["#e9e8e6", "#8b1a2b", "#c8323e", "#1c1c1c"],
+        "font": "Poppins"
+      },
+      "used_in": ["finance-doc"],
+      "updated_at": "2026-10-31"
+    },
+    {
+      "id": "document-card-highlighter",
+      "category": "document-card",
+      "tags": ["document", "highlighter", "excerpt", "paper", "citation", "news"],
+      "winning_engine": "hyperframes-2d",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "tscs-finance-explainer",
+      "template": "templates/technique-document.html",
+      "summary": "Staged document/excerpt card with animated marker highlighter sweep aligned to narration.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "fps": 30,
+        "accent": "#8b1a2b"
+      },
+      "used_in": ["finance-doc"],
+      "updated_at": "2026-10-31"
+    },
+    {
+      "id": "topographic-paper-backdrop",
+      "category": "background",
+      "tags": ["background", "paper", "topo", "texture", "documentary"],
+      "winning_engine": "hyperframes-2d",
+      "secondary_engines": [],
+      "target_skill": "tscs-finance-explainer",
+      "template": "tscs.js -> TSCS.topo",
+      "summary": "Procedural off-white topographic contour paper canvas backdrop (#e9e8e6).",
+      "baseline": {
+        "palette": ["#e9e8e6", "#1c1c1c"]
+      },
+      "used_in": ["finance-doc"],
+      "updated_at": "2026-10-31"
+    },
+    {
+      "id": "full-bleed-broll-overlays",
+      "category": "b-roll",
+      "tags": ["b-roll", "footage", "name-plate", "drone", "overlay", "documentary"],
+      "winning_engine": "ffmpeg-compositor",
+      "secondary_engines": ["hyperframes-2d"],
+      "rejected_engines": [],
+      "target_skill": "tscs-finance-explainer",
+      "template": "footage_hunt.py",
+      "summary": "Darkened full-bleed footage plates with crisp screen-fixed name plates and identification overlays.",
+      "baseline": {
+        "aspect_ratio": "16:9"
+      },
+      "used_in": ["finance-doc", "indo-crash-v3"],
+      "updated_at": "2026-10-31"
+    },
+    {
+      "id": "soft-transition-sfx-kit",
+      "category": "sfx",
+      "tags": ["sfx", "sound", "audio", "swell", "pop", "hit", "transition"],
+      "winning_engine": "sfx-synthesis",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "video-automation",
+      "template": "tools/sfx_kit.py",
+      "summary": "Measured soft SFX kit (pops 20ms rise/395Hz/-22.4dB, swells 160ms/332Hz/-13.8dB, hits 40ms/392Hz/-18.2dB).",
+      "baseline": {
+        "lufs": -16.0,
+        "sfx_per_min": 42.7
+      },
+      "used_in": ["finance-doc"],
+      "updated_at": "2026-10-31"
+    },
+    {
+      "id": "low-poly-continuous-3d-world",
+      "category": "3d-explainer",
+      "tags": ["3d", "low-poly", "toon", "diorama", "continuous-camera", "cutaway", "shorts", "explainer"],
+      "winning_engine": "threejs-webgl",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "gem-3d-world",
+      "template": "W3.camPath, W3.boot({ssaa:2}), W3.shop.setCut, F3.pond",
+      "summary": "Single continuous-camera low-poly Three.js world (0 cuts) with toon outlines, glass cards, and cutaway rigs.",
+      "baseline": {
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "wpm": 182,
+        "lufs": -13.8,
+        "sfx_per_min": 76.5
+      },
+      "used_in": ["davin-kopdes", "davin-lele"],
+      "updated_at": "2026-11-01"
+    },
+    {
+      "id": "3d-civil-apparatus-cutaway",
+      "category": "3d-explainer",
+      "tags": ["3d", "engineering", "civil", "cutaway", "apparatus", "stress-test", "dimensions", "shorts"],
+      "winning_engine": "threejs-webgl",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "gem-3d-world",
+      "template": "lib/construct3d.js",
+      "summary": "Explanatory 3D engineering diorama with apparatus swapping, orthogonal plan dives, in-world dimensions, and A/B failure simulation.",
+      "baseline": {
+        "aspect_ratio": "9:16",
+        "duration_sec": 122.8
+      },
+      "used_in": ["redha-beton"],
+      "updated_at": "2026-11-01"
+    },
+    {
+      "id": "prompt-style-stickman-explainer",
+      "category": "prompt-style",
+      "tags": ["prompt-style", "stickman", "2d", "flat", "diagram", "explainer", "automated-lunch-free"],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/stickman-why-explainer",
+      "template": "styles/stickman-why-explainer/stickman-why-explainer.style.json",
+      "summary": "Flat 2D stickman explainer style verified at 8/8 golden beats on cinematic-story.",
+      "baseline": {
+        "framing": "flat",
+        "beats_passed": "8/8"
+      },
+      "used_in": ["lumensia-kudanil"],
+      "updated_at": "2026-11-23"
+    },
+    {
+      "id": "prompt-style-isometric-3d",
+      "category": "prompt-style",
+      "tags": ["prompt-style", "isometric", "3d", "diorama", "film", "shorts", "automated-lunch-free"],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/isometric-3d-explainer",
+      "template": "styles/isometric-3d-explainer/isometric-3d-explainer.style.json",
+      "summary": "9:16 3D diorama prompt style with film framing and 178 WPM narration cadence.",
+      "baseline": {
+        "aspect_ratio": "9:16",
+        "framing": "film",
+        "wpm": 178
+      },
+      "used_in": ["redha-beton"],
+      "updated_at": "2026-11-23"
+    }
+  ]
+}

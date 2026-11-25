@@ -1,0 +1,239 @@
+{
+  "schema": "reva-lab-engines",
+  "version": 1,
+  "engines": [
+    {
+      "id": "hyperframes-2d",
+      "name": "HyperFrames 2D Motion Stack",
+      "kind": "code-2d",
+      "callable_via": "npx hyperframes render <index.html> --out <mp4>",
+      "probes": {
+        "bin": ["npx.cmd", "npx", "node"],
+        "skill_names": ["video-automation", "tscs-finance-explainer", "hyperframes-motion-designer"]
+      },
+      "strengths": [
+        "document-card",
+        "typography",
+        "data-chart",
+        "timeline",
+        "editorial-motion",
+        "2d-overlay",
+        "map"
+      ],
+      "limitations": [
+        "No photoreal PBR lighting or physics simulation",
+        "Complex organic characters require pre-rendered plates or AI frames"
+      ],
+      "harness": "lab/harnesses/hyperframes-2d",
+      "install_hint": "npm install -g hyperframes"
+    },
+    {
+      "id": "threejs-webgl",
+      "name": "Three.js / WebGL Continuous 3D",
+      "kind": "code-3d",
+      "callable_via": "npx hyperframes / gem-3d-world WebGL scene runner",
+      "probes": {
+        "bin": ["node", "npx.cmd", "npx"],
+        "skill_names": ["gem-3d-world", "3d-explainer-video", "3d-motion-video"]
+      },
+      "strengths": [
+        "3d-explainer",
+        "low-poly",
+        "toon",
+        "continuous-camera",
+        "cutaway",
+        "apparatus",
+        "spatial-dimensions"
+      ],
+      "limitations": [
+        "Soft global illumination and photoreal raytracing are limited compared to Blender Cycles",
+        "Cloth/fluid physics require heavy custom shaders or pre-baked meshes"
+      ],
+      "harness": "lab/harnesses/threejs-webgl",
+      "install_hint": "npm install three"
+    },
+    {
+      "id": "animated-map",
+      "name": "Animated Route & Geographic Map Engine",
+      "kind": "code-map",
+      "callable_via": "map-video templates (HyperFrames/SVG/D3-geo) or npm.cmd run map",
+      "probes": {
+        "bin": ["node", "ffmpeg"],
+        "skill_names": ["map-video", "animated-map"]
+      },
+      "strengths": [
+        "animated-map",
+        "route",
+        "geography",
+        "coastline",
+        "lat-lon",
+        "travel",
+        "geopolitics"
+      ],
+      "limitations": [
+        "Terrain elevation and photoreal satellite flyovers need DEM tiles or 3D globe shaders"
+      ],
+      "harness": "lab/harnesses/hyperframes-2d"
+    },
+    {
+      "id": "d3-charts",
+      "name": "D3 Real-Data Charts Engine",
+      "kind": "code-data",
+      "callable_via": "finance-charts scripts + D3/SVG HyperFrames templates",
+      "probes": {
+        "bin": ["node", "python"],
+        "skill_names": ["finance-charts", "tscs-finance-explainer"]
+      },
+      "strengths": [
+        "data-chart",
+        "line-chart",
+        "bar-chart",
+        "finance",
+        "ticker",
+        "real-data"
+      ],
+      "limitations": [
+        "Scoped to quantitative data visualizations and financial callouts"
+      ],
+      "harness": "lab/harnesses/hyperframes-2d"
+    },
+    {
+      "id": "automated-lunch-free",
+      "name": "Automated-Lunch-Free CLI Pipeline",
+      "kind": "ai-pipeline",
+      "callable_via": "npm.cmd run make | npm.cmd run map | npm.cmd run style-test | node scripts/style-check.js",
+      "probes": {
+        "app_check": "automated-lunch-free",
+        "bin": ["node"]
+      },
+      "strengths": [
+        "prompt-style",
+        "illustration",
+        "stickman",
+        "storyboard",
+        "photoreal-plates",
+        "high-cut-pace",
+        "ai-narration"
+      ],
+      "limitations": [
+        "Not suitable for exact pixel-locked UI layouts or deterministic D3 chart timing",
+        "Requires style-test (6/8 beats) to verify prompt consistency"
+      ],
+      "harness": "lab/harnesses/automated-lunch-free",
+      "install_hint": "Set REVA_APP to your Automated-Lunch-Free checkout"
+    },
+    {
+      "id": "ffmpeg-compositor",
+      "name": "FFmpeg Filtergraph Compositor",
+      "kind": "compositor",
+      "callable_via": "ffmpeg -filter_complex ... (Python / CLI pipeline)",
+      "probes": {
+        "ffmpeg": true,
+        "python_module": "PIL"
+      },
+      "strengths": [
+        "b-roll",
+        "compositing",
+        "grade",
+        "overlay",
+        "pip",
+        "aspect-convert",
+        "loudnorm"
+      ],
+      "limitations": [
+        "Filtergraphs get brittle for complex keyframed typography or 3D cameras"
+      ],
+      "harness": "lab/harnesses/ffmpeg-probe"
+    },
+    {
+      "id": "sfx-synthesis",
+      "name": "Procedural Audio & SFX Engine",
+      "kind": "audio",
+      "callable_via": "python sfx_kit.py / make_audio.py / sfx_lab.py audition",
+      "probes": {
+        "ffmpeg": true,
+        "python_module": "numpy",
+        "skill_names": ["video-automation", "3d-motion-video"]
+      },
+      "strengths": [
+        "sfx",
+        "sound",
+        "swell",
+        "pop",
+        "hit",
+        "transition-audio",
+        "loudness"
+      ],
+      "limitations": [
+        "Procedural synthesis cannot replace recorded orchestral foley or licensed vocals"
+      ]
+    },
+    {
+      "id": "blender-bpy",
+      "name": "Headless Blender Cycles/EEVEE CLI",
+      "kind": "code-3d",
+      "callable_via": "blender -b -P render.py",
+      "probes": {
+        "bin": ["blender", "blender.exe"],
+        "win_globs": ["C:\\Program Files\\Blender Foundation\\Blender*\\blender.exe"]
+      },
+      "strengths": [
+        "pbr-3d",
+        "photoreal-3d",
+        "physics",
+        "fluid",
+        "cloth",
+        "sculpted-character",
+        "raytraced-gi"
+      ],
+      "limitations": [
+        "Heavier render times than WebGL/Three.js for rapid iteration"
+      ],
+      "harness": "lab/harnesses/blender-bpy",
+      "install_hint": "winget install BlenderFoundation.Blender"
+    },
+    {
+      "id": "manim",
+      "name": "Manim Mathematical Animation CLI",
+      "kind": "code-math",
+      "callable_via": "manim -qh scene.py <SceneClass>",
+      "probes": {
+        "bin": ["manim"],
+        "python_module": "manim"
+      },
+      "strengths": [
+        "math",
+        "equations",
+        "geometry",
+        "vector-morph",
+        "proof",
+        "graphs"
+      ],
+      "limitations": [
+        "Specialized for math/geometry; less suited for photo b-roll or UI cards"
+      ],
+      "install_hint": "pip install manim"
+    },
+    {
+      "id": "remotion",
+      "name": "Remotion React Video CLI",
+      "kind": "code-2d",
+      "callable_via": "npx remotion render <Comp> out.mp4",
+      "probes": {
+        "bin": ["node", "npx.cmd", "npx"],
+        "npm_global_or_local": "remotion"
+      },
+      "strengths": [
+        "react-ui",
+        "saas-demo",
+        "code-walkthrough",
+        "component-motion",
+        "data-chart"
+      ],
+      "limitations": [
+        "Requires Node/React project scaffolding"
+      ],
+      "install_hint": "npx create-video@latest"
+    }
+  ]
+}

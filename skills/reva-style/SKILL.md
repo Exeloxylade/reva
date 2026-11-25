@@ -8,7 +8,7 @@ description: "BRANCH 2B - REVA Style (Prompt-Style Scraping & Cloning for Automa
 **Target:** `Automated-Lunch-Free\styles\<id>\` (`<id>.style.json`, `<id>.md`, and gitignored `test\beats.json` + `test\ref\*.jpg`).
 **CLI:** `python reva_style.py ...` (or `reva-style` / `reva style ...`).
 
-Prompt-style cloning captures **art direction, story order, pacing, framing, and picture rules** so `Automated-Lunch-Free` reproduces a channel's look and rhythm — **no code rigs, pixel coordinates, or easing curves required**.
+Prompt-style cloning captures **art direction, story order, pacing, framing, and picture rules** so `Automated-Lunch-Free` (a code-callable Electron/Node CLI engine) reproduces a channel's look and rhythm — **no manual pixel coordinates or easing curves required**.
 
 ---
 
@@ -37,10 +37,10 @@ Prompt-style cloning captures **art direction, story order, pacing, framing, and
 3. **Dry-run check & deliver to `Automated-Lunch-Free`:**
    ```cmd
    python reva_style.py check my-study
-   python reva_style.py deliver my-study
+   python reva_style.py deliver my-study --promote --tags "explainer,2d"
    ```
    - `check` verifies no UTF-8 BOM, zero leftover `<...>` placeholders, and runs `Automated-Lunch-Free\scripts\style-check.js` locally without copying anything yet.
-   - `deliver` copies `style\<id>\` into `<app>\styles\<id>\` and runs `style-check.js <id>`. Fix every `ERROR` and review `WARNING`s.
+   - `deliver` copies `style\<id>\` into `<app>\styles\<id>\` and runs `style-check.js <id>`. Passing `--promote` (or running `reva-lab promote-style my-study`) indexes the style into `lab/library.json` for reuse on future channel studies. Fix every `ERROR` and review `WARNING`s.
 
 4. **Prove visually (`style-test` + 45s test render):**
    ```cmd
@@ -76,7 +76,7 @@ Prompt-style cloning captures **art direction, story order, pacing, framing, and
 | `beats <study> [<id>] (--at ... \| --auto)` | Extract golden beat JPEGs + aligned narration + `beats-preview.jpg` |
 | `scaffold <study> [<id>] [--refresh-metrics]` | Create `<id>.style.json` + `<id>.md` (or refresh only measured metrics) |
 | `check <study> [--style <id>]` | Dry-run placeholder check + local `style-check.js` without copying |
-| `deliver <study> [--style <id>]` | Validate, copy into `<app>\styles\<id>\`, and run `style-check.js` |
+| `deliver <study> [--style <id>] [--promote]` | Validate, copy into `<app>\styles\<id>\`, run `style-check.js`, and optionally promote to `lab/library.json` |
 | `status [<study>]` | Show style studies, remaining placeholders (`ready` vs count), and delivery status |
 
 ---

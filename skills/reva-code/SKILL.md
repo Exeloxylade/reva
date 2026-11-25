@@ -22,16 +22,23 @@ description: "BRANCH 2A - REVA Code (Pure Coding Video Reverse Engineering). Dec
 
 ---
 
-## 4-Step Coding Reverse-Engineering Loop
+## 5-Step Coding Reverse-Engineering & Test-Bench Loop
 
 Isolate **one technique/rig at a time** — never attempt an entire multi-scene film in one blind pass.
+
+0. **Check the Engineering Lab before building from scratch:**
+   ```cmd
+   python reva_lab.py engines
+   python reva_lab.py library search "animated map"
+   ```
+   If Video 1 already solved a similar pattern (e.g., `animated-route-map`, `data-line-chart-photo-cards`), reuse that baseline instead of reinventing it.
 
 1. **Scrape the whole video first:**
    ```cmd
    python reva_code.py scrape my-study <url-or-file>
+   python reva_lab.py recommend my-study
    ```
-   Produces `studies\my-study\dossier.md`, timestamped `ref\contact-sheet-*.jpg`, `ref\measure.json` (cuts, motion ratio, palette, WPM), `ref\sound.json` (stereo L-R SFX events), and `ref\transcript.txt`.
-   Read `dossier.md` and the contact sheets to list distinct techniques with exact time ranges.
+   Produces `studies\my-study\dossier.md` (including matching lab patterns and candidate engines), timestamped `ref\contact-sheet-*.jpg`, `ref\measure.json`, `ref\sound.json`, and `ref\transcript.txt`.
 
 2. **Isolate & measure one technique (pixels, frames, colors, sound):**
    ```cmd
@@ -40,25 +47,29 @@ Isolate **one technique/rig at a time** — never attempt an entire multi-scene 
    python reva_code.py colors my-study line-chart --at 44
    python reva_code.py sound my-study --mode side --auto
    ```
+   - `add` automatically checks `lab/library.json` for matching reusable patterns. If a match fits, link it:
+     `python reva_code.py reuse my-study line-chart --pattern data-line-chart-photo-cards`
    - `theirs\_strip_35-59.jpg`: 5 fps motion strip (count frames × `0.2 s` for entry delays, holds, and easing).
    - `theirs\grid_*.png`: 100px/200px coordinate ruler + center crosshair (`WxH` verified) for exact px layout measurement.
-   - `notes.md`: record rendering stack hypothesis, exact px boxes, typography (identify & load free Google Fonts via `@font-face` — never system fonts), hex colors, entry timing, camera grammar, and SFX levels.
-   - Use `python scripts\sfx_lab.py audition ...` when tuning synthesized/matched SFX against voice.
+   - `notes.md`: record rendering stack hypothesis, exact px boxes, typography (load free Google Fonts via `@font-face` — never system fonts), hex colors, entry timing, camera grammar, and SFX levels.
 
-3. **Rebuild in Branch 1 with your own content, compare, and verify:**
-   - Build the rig with your own topic, script, voice, real data (`finance-charts`), or real assets (`image_hunt.py`).
-   - Run side-by-side comparison and iterate until the user's eye confirms a match:
+3. **Test-bench bake-off, compare, and verdict:**
+   - Initialize isolated starter benches for 1+ candidate engines and render short 3–10 s spikes with your own content/data:
    ```cmd
-   python reva_code.py compare my-study line-chart --mine <your-render.mp4> --mine-at 12,24 --ref-at 44,56
-   python reva_code.py verify my-study line-chart --note "Eye-checked; margins, font weight, and card stagger matched"
+   python reva_code.py bench my-study line-chart --tool hyperframes-2d
+   python reva_code.py compare my-study line-chart --tool hyperframes-2d --mine bench\hyperframes-2d\out.mp4 --mine-at 12,24 --ref-at 44,56
+   python reva_code.py verdict my-study line-chart --winner hyperframes-2d --rejected "ffmpeg-compositor:cannot animate D3 paths cleanly" --note "Crisp SVG + Poppins match"
    ```
-   *(Note: `verify` requires `compare.jpg` to exist first so uncompared code is never marked proven.)*
+   - Verify after the user's eye check confirms a match (optionally promoting straight into `lab/library.json`):
+   ```cmd
+   python reva_code.py verify my-study line-chart --tool hyperframes-2d --note "Eye-checked" --promote --category data-chart --tags "chart,line-chart,d3"
+   ```
 
 4. **Export proven skill brief for Branch 1:**
    ```cmd
    python reva_code.py skill my-study
    ```
-   Writes `skill-export.md` listing `[VERIFIED]` / `[COMPARED]` / `[UNVERIFIED]` status per technique, all measured parameters, and remaining gaps before adding `## Technique: <name> (measured)` + template into `Exeloxylade/video-making-skills`.
+   Writes `skill-export.md` listing `[VERIFIED]` / `[COMPARED]` / `[UNVERIFIED]` status, winning/rejected engines, candidate compare sheets, and promoted pattern IDs before adding `## Technique: <name> (measured)` + template into `Exeloxylade/video-making-skills`.
 
 ---
 
@@ -69,14 +80,17 @@ Isolate **one technique/rig at a time** — never attempt an entire multi-scene 
 | `doctor` | Check Python, FFmpeg/ffprobe, `yt-dlp`, NumPy, Pillow, workspace |
 | `scrape <study> <source>` | Full code scrape: `start` + `measure` + `sound` (events) + `dossier.md` |
 | `start` / `measure` | Run teardown or re-measure cuts, still/moving %, palette, WPM |
-| `add <study> <tech> --from <s> --to <s> [--grid]` | 5 fps strip + 3 full stills (optional `grid_*.png`) + code `notes.md` |
+| `add <study> <tech> --from <s> --to <s> [--grid]` | 5 fps strip + 3 full stills (optional `grid_*.png`) + pattern check + `notes.md` |
+| `bench <study> <tech> --tool <engine>` | Initialize `bench/<engine>/` with starter harness and measured `bench.json` |
+| `reuse <study> <tech> --pattern <id>` | Link proven library pattern and append baseline + delta checklist to `notes.md` |
 | `stills <study> <tech> --at <t1,t2> [--grid]` | Extra full-res PNG stills with optional pixel coordinate overlay |
 | `colors <study> [<tech>] [--at <t>]` | Extract main + saturated accent hex colors |
 | `sound <study> [--mode events\|side\|analyze\|audition]` | Stereo L-R SFX events, cut side jumps, WAV metrics, or audition video |
-| `compare <study> <tech> --mine <mp4> --mine-at ...` | Render `compare.jpg` (`REF` left vs `MINE` right) |
-| `verify <study> <tech> [--note "..."]` | Mark compared technique as eye-checked proof |
+| `compare <study> <tech> --mine <mp4> [--tool <engine>]` | Render `compare.jpg` (and `compare_<tool>.jpg` when `--tool` is passed) |
+| `verdict <study> <tech> --winner <engine>` | Record winning and rejected candidate engines in `study.json` & `notes.md` |
+| `verify <study> <tech> [--tool ...] [--promote]` | Mark compared technique as verified proof and optionally promote to `lab/library.json` |
 | `skill <study> [--out <file>]` | Export `skill-export.md` with proof summary for Branch 1 |
-| `status [<study>]` | Show studies and `[verified]` / `[compared]` / `[measuring]` status |
+| `status [<study>]` | Show studies, winning engines, and `[verified]` / `[compared]` / `[measuring]` status |
 
 ---
 

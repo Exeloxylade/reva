@@ -19,6 +19,7 @@ if S not in sys.path:
     sys.path.insert(0, S)
 
 import _common as C
+import lab_library
 import study_ops as O
 import style_kit
 
@@ -167,6 +168,12 @@ def cmd_deliver(a, root):
         O.save_study(root, a.study, st)
         if r.returncode != 0:
             raise SystemExit("style-check failed: fix every ERROR above, then deliver again")
+        if getattr(a, "promote", False):
+            tags = [x.strip() for x in a.tags.split(",") if x.strip()] if getattr(a, "tags", None) else None
+            entry, _ = lab_library.promote_style(
+                O.sdir(root, a.study), st, f, pattern_id=getattr(a, "pattern_id", None), tags=tags
+            )
+            print(f"promoted -> pattern '{entry['id']}' in {lab_library.library_path()}")
         print(f"next: cd \"{app}\" && npm.cmd run style-test -- --style {sid} --preset cinematic-story   (pass = 6 of 8 beats)")
     O.refresh_dossier(root, a.study, st, focus="style")
 
@@ -262,6 +269,9 @@ def build_parser():
     s.add_argument("--style")
     s.add_argument("--app")
     s.add_argument("--allow-draft", action="store_true")
+    s.add_argument("--promote", action="store_true", help="promote delivered style into lab/library.json")
+    s.add_argument("--id", "--pattern-id", dest="pattern_id")
+    s.add_argument("--tags")
 
     s = sub.add_parser("status", help="show style studies, remaining placeholders, and delivery status")
     s.add_argument("study", nargs="?")

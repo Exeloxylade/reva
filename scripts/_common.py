@@ -19,6 +19,64 @@ def workspace_root(override=None):
     return os.path.join(REPO_ROOT, "studies")
 
 
+def lab_dir(override=None):
+    """Return the active REVA Engineering Lab root directory."""
+    raw = override or os.environ.get("REVA_LAB_DIR")
+    if raw:
+        return os.path.abspath(os.path.expanduser(raw))
+    return os.path.join(REPO_ROOT, "lab")
+
+
+def find_branch1_roots():
+    """Return existing directories that hold Branch 1 video-making skills."""
+    home = os.path.expanduser("~")
+    parent = os.path.dirname(REPO_ROOT)
+    candidates = []
+    env_b1 = os.environ.get("REVA_BRANCH1")
+    if env_b1:
+        for part in env_b1.split(os.pathsep):
+            if part.strip():
+                candidates.append(os.path.abspath(os.path.expanduser(part.strip())))
+    candidates.extend([
+        os.path.join(parent, "video-making-skills"),
+        os.path.join(home, ".kiro", "crew", "skills"),
+        os.path.join(home, ".codex", "skills"),
+        os.path.join(home, ".gemini", "config", "plugins"),
+    ])
+    seen = set()
+    roots = []
+    for cand in candidates:
+        norm = os.path.abspath(cand)
+        key = norm.lower()
+        if key not in seen and os.path.isdir(norm):
+            seen.add(key)
+            roots.append(norm)
+    return roots
+
+
+def find_skill_dir(skill_names):
+    """Locate Branch 1 skill folders across discovered skill roots."""
+    if isinstance(skill_names, str):
+        skill_names = [skill_names]
+    found = {}
+    roots = find_branch1_roots()
+    for sname in skill_names:
+        for root in roots:
+            direct = os.path.join(root, sname)
+            if os.path.isdir(direct):
+                found[sname] = direct
+                break
+            if os.path.basename(root).lower() == "plugins":
+                for entry in sorted(os.listdir(root)):
+                    nested = os.path.join(root, entry, "skills", sname)
+                    if os.path.isdir(nested):
+                        found[sname] = nested
+                        break
+                if sname in found:
+                    break
+    return found
+
+
 def is_app_dir(path):
     """Return True if path looks like an Automated-Lunch-Free checkout."""
     if not path:

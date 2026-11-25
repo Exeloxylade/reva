@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(REPO, "scripts")
 REVA_PY = os.path.join(REPO, "reva.py")
 REVA_CODE_PY = os.path.join(REPO, "reva_code.py")
+REVA_LAB_PY = os.path.join(REPO, "reva_lab.py")
 REVA_STYLE_PY = os.path.join(REPO, "reva_style.py")
 if SCRIPTS not in sys.path:
     sys.path.insert(0, SCRIPTS)
@@ -20,9 +22,11 @@ import _common as C
 import style_kit
 
 
-def run_cli(entry, workspace, *args, check=True):
+def run_cli(entry, workspace, *args, lab_dir=None, check=True):
     env = os.environ.copy()
     env["REVA_WORKSPACE"] = workspace
+    if lab_dir:
+        env["REVA_LAB_DIR"] = lab_dir
     r = subprocess.run(
         [sys.executable, entry, *map(str, args)],
         cwd=REPO,
@@ -120,8 +124,10 @@ class TestRevaSplitTools(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory(prefix="reva_e2e_")
         cls.ws = os.path.join(cls.tmp.name, "studies")
         cls.media = os.path.join(cls.tmp.name, "media")
+        cls.lab_dir = os.path.join(cls.tmp.name, "lab")
         os.makedirs(cls.ws, exist_ok=True)
         os.makedirs(cls.media, exist_ok=True)
+        shutil.copytree(os.path.join(REPO, "lab"), cls.lab_dir)
         ff = C.find_ffmpeg()
 
         # 1. sample_wide.mp4: 9s 640x360 stereo video with 3 cuts (static -> moving -> static) + 2 stereo SFX bursts.
@@ -362,6 +368,136 @@ class TestRevaSplitTools(unittest.TestCase):
         self.assertEqual(r2.returncode, 0, r2.stderr)
         self.assertTrue(os.path.exists(out_mp4))
         self.assertFalse(os.path.exists(os.path.join(self.tmp.name, "_audition")))
+
+    def test_06_lab_engines_register_and_library_search(self):
+        eng_res = run_cli(REVA_LAB_PY, self.ws, "engines", "--json", lab_dir=self.lab_dir)
+        inv = json.loads(eng_res.stdout)
+        by_id = {e["id"]: e for e in inv["engines"]}
+        self.assertIn("ffmpeg-compositor", by_id)
+        self.assertEqual(by_id["ffmpeg-compositor"]["status"], "ready")
+        self.assertIn("automated-lunch-free", by_id)
+
+        srch = run_cli(REVA_LAB_PY, self.ws, "library", "search", "animated map", lab_dir=self.lab_dir)
+        self.assertIn("animated-route-map", srch.stdout)
+
+        # Register a brand-new code-callable engine dynamically and confirm discovery.
+        run_cli(
+            REVA_LAB_PY, self.ws, "register", "nextgen-volumetrics",
+            "--name", "NextGen Volumetrics CLI",
+            "--kind", "code-3d",
+            "--strengths", "volumetrics,fog,3d-explainer",
+            "--callable-via", "python -V",
+            "--bin", "python",
+            "--install-hint", "pip install nextgen-vol",
+            lab_dir=self.lab_dir,
+        )
+        eng_after = json.loads(run_cli(REVA_LAB_PY, self.ws, "engines", "--json", lab_dir=self.lab_dir).stdout)
+        new_eng = next(e for e in eng_after["engines"] if e["id"] == "nextgen-volumetrics")
+        self.assertEqual(new_eng["status"], "ready")
+
+        har = run_cli(REVA_LAB_PY, self.ws, "harnesses", lab_dir=self.lab_dir)
+        self.assertIn("ffmpeg-compositor", har.stdout)
+
+    def test_07_multi_tool_bakeoff_and_cross_video_reuse_e2e(self):
+        # --- Video 1: scrape, isolate, bench trial, bake-off compare, verdict, verify + promote ---
+        run_cli(REVA_CODE_PY, self.ws, "scrape", "v1-map", self.wide_mp4, lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "add", "v1-map", "route-map", "--from", "0", "--to", "3", "--grid", lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "bench", "v1-map", "route-map", "--tool", "ffmpeg-compositor", lab_dir=self.lab_dir)
+
+        bench_dir = os.path.join(self.ws, "v1-map", "route-map", "bench", "ffmpeg-compositor")
+        render_py = os.path.join(bench_dir, "render.py")
+        self.assertTrue(os.path.exists(render_py))
+        self.assertTrue(os.path.exists(os.path.join(bench_dir, "bench.json")))
+
+        # Actually run the copied starter harness to render an MP4 clip.
+        bench_out = os.path.join(bench_dir, "out.mp4")
+        rr = C.run_cmd([sys.executable, render_py, bench_out])
+        self.assertEqual(rr.returncode, 0, rr.stderr)
+        self.assertTrue(os.path.exists(bench_out))
+
+        # Multi-tool bake-off comparisons.
+        run_cli(
+            REVA_CODE_PY, self.ws, "compare", "v1-map", "route-map",
+            "--tool", "ffmpeg-compositor", "--mine", bench_out, "--mine-at", "1,2", "--ref-at", "0.5,2.5",
+            lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_CODE_PY, self.ws, "compare", "v1-map", "route-map",
+            "--tool", "hyperframes-2d", "--mine", self.rebuild_mp4, "--mine-at", "1,2", "--ref-at", "0.5,2.5",
+            lab_dir=self.lab_dir,
+        )
+        tech_dir = os.path.join(self.ws, "v1-map", "route-map")
+        self.assertTrue(os.path.exists(os.path.join(tech_dir, "compare_ffmpeg-compositor.jpg")))
+        self.assertTrue(os.path.exists(os.path.join(tech_dir, "compare_hyperframes-2d.jpg")))
+        self.assertTrue(os.path.exists(os.path.join(tech_dir, "compare.jpg")))
+
+        run_cli(
+            REVA_CODE_PY, self.ws, "verdict", "v1-map", "route-map",
+            "--winner", "ffmpeg-compositor",
+            "--rejected", "hyperframes-2d:overkill for test",
+            "--note", "Matched palette and layout",
+            lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_CODE_PY, self.ws, "verify", "v1-map", "route-map",
+            "--tool", "ffmpeg-compositor", "--promote",
+            "--id", "test-route-map", "--category", "animated-map",
+            "--tags", "map,route,trail", "--note", "Eye-checked bake-off winner",
+            lab_dir=self.lab_dir,
+        )
+        run_cli(REVA_CODE_PY, self.ws, "skill", "v1-map", lab_dir=self.lab_dir)
+        with open(os.path.join(self.ws, "v1-map", "skill-export.md"), encoding="utf-8") as fp:
+            exp = fp.read()
+        self.assertIn("Winning engine:** `ffmpeg-compositor`", exp)
+        self.assertIn("`hyperframes-2d` (overkill for test)", exp)
+        self.assertIn("Promoted to library:** `test-route-map`", exp)
+
+        # --- Video 2: recommend discovers Video 1 pattern, reuse links it, promote appends v2-geo ---
+        run_cli(REVA_CODE_PY, self.ws, "scrape", "v2-geo", self.wide_mp4, lab_dir=self.lab_dir)
+        rec_out = run_cli(REVA_LAB_PY, self.ws, "recommend", "v2-geo", "--tags", "animated-map,route", lab_dir=self.lab_dir)
+        self.assertIn("test-route-map", rec_out.stdout)
+
+        add_out = run_cli(REVA_CODE_PY, self.ws, "add", "v2-geo", "geo-route", "--from", "0", "--to", "3", lab_dir=self.lab_dir)
+        self.assertIn("route", add_out.stdout.lower())
+
+        run_cli(REVA_CODE_PY, self.ws, "reuse", "v2-geo", "geo-route", "--pattern", "test-route-map", lab_dir=self.lab_dir)
+        with open(os.path.join(self.ws, "v2-geo", "geo-route", "notes.md"), encoding="utf-8") as fp:
+            v2_notes = fp.read()
+        self.assertIn("Reused Baseline (from `test-route-map`)", v2_notes)
+        self.assertIn("hyperframes-2d (overkill for test)", v2_notes)
+
+        run_cli(
+            REVA_CODE_PY, self.ws, "compare", "v2-geo", "geo-route",
+            "--tool", "ffmpeg-compositor", "--mine", self.rebuild_mp4, "--mine-at", "1,2", "--ref-at", "0.5,2.5",
+            lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_CODE_PY, self.ws, "verify", "v2-geo", "geo-route",
+            "--tool", "ffmpeg-compositor", "--promote", "--pattern-id", "test-route-map",
+            lab_dir=self.lab_dir,
+        )
+        with open(os.path.join(self.lab_dir, "library.json"), encoding="utf-8") as fp:
+            lib = json.load(fp)
+        pat = next(p for p in lib["patterns"] if p["id"] == "test-route-map")
+        self.assertEqual(pat["used_in"], ["v1-map", "v2-geo"])
+
+    def test_08_router_lab_and_style_promote(self):
+        r1 = run_cli(REVA_PY, self.ws, "lab", "engines", lab_dir=self.lab_dir)
+        self.assertIn("REVA ENGINEERING LAB", r1.stdout)
+        r2 = run_cli(REVA_PY, self.ws, "library", "search", "animated map", lab_dir=self.lab_dir)
+        self.assertIn("animated-route-map", r2.stdout)
+
+        # Ensure demo-style from test_03 (or create one if test_08 runs standalone) can be promoted.
+        if not os.path.exists(os.path.join(self.ws, "demo-style", "study.json")):
+            run_cli(REVA_STYLE_PY, self.ws, "scrape", "demo-style", self.wide_mp4, "--beats", "2", lab_dir=self.lab_dir)
+            sf = os.path.join(self.ws, "demo-style", "style", "demo-style", "demo-style.style.json")
+            with open(sf, encoding="utf-8") as fp:
+                sdata = _fill_placeholders(json.load(fp))
+            with open(sf, "w", encoding="utf-8") as fp:
+                json.dump(sdata, fp, indent=2)
+
+        rp = run_cli(REVA_LAB_PY, self.ws, "promote-style", "demo-style", "--tags", "clean,cards", lab_dir=self.lab_dir)
+        self.assertIn("prompt-style-demo-style", rp.stdout)
 
 
 if __name__ == "__main__":

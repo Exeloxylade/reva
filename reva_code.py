@@ -2,14 +2,15 @@
 """reva-code - Pure Coding Video Reverse Engineering (Branch 1 / HyperFrames / Three.js / GSAP).
 
 Isolate individual techniques, measure pixel layouts (--grid), timing (5 fps strips),
-hex palettes, and stereo SFX, rebuild with your own content, verify side-by-side, and export
-proven Branch 1 skill specifications.
+hex palettes, and stereo SFX, run multi-tool test-bench bake-offs, verify side-by-side,
+promote reusable patterns, and export proven Branch 1 skill specifications.
 """
 import argparse
 import datetime
 import glob
 import json
 import os
+import shutil
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -18,6 +19,8 @@ if S not in sys.path:
     sys.path.insert(0, S)
 
 import _common as C
+import lab_engine
+import lab_library
 import study_ops as O
 import style_kit
 
@@ -102,7 +105,7 @@ def cmd_scrape(a, root):
     print(f"\n=== CODE SCRAPE COMPLETE ({a.study}) ===")
     print(f"  dossier  -> {dossier}")
     print(f"  sheets   -> {O.sdir(root, a.study, 'ref')}\\contact-sheet-*.jpg")
-    print(f"  next     -> inspect dossier + contact sheets, then isolate 1 rig: reva-code add {a.study} <tech> --from <s> --to <s> --grid")
+    print(f"  next     -> inspect dossier + contact sheets, or run: reva-lab recommend {a.study}")
 
 
 def cmd_add(a, root):
@@ -122,9 +125,15 @@ def cmd_add(a, root):
         still_args.append("--grid")
     O.run_py("technique.py", *still_args)
 
-    st.setdefault("techniques", {})[a.technique] = {
-        "from": a.from_, "to": a.to, "stills": mid, "status": "measuring",
-    }
+    prev_tech = st.get("techniques", {}).get(a.technique)
+    tech_entry = prev_tech if isinstance(prev_tech, dict) else {}
+    tech_entry.update({
+        "from": a.from_,
+        "to": a.to,
+        "stills": mid,
+        "status": tech_entry.get("status") or "measuring",
+    })
+    st.setdefault("techniques", {})[a.technique] = tech_entry
     O.save_study(root, a.study, st)
 
     td_path = O.sdir(root, a.study, "ref", "teardown.json")
@@ -135,22 +144,97 @@ def cmd_add(a, root):
         if vid.get("width") and vid.get("height"):
             res = f"{vid['width']}x{vid['height']}"
 
+    matches = lab_library.search_patterns(query=a.technique)[:3]
+    if matches:
+        match_lines = [
+            f"- `{m['id']}` (engine `{m['winning_engine']}`, skill `{m.get('target_skill') or '-'}`): {m.get('summary')}"
+            for m in matches
+        ]
+    else:
+        match_lines = ["- (no matching pattern yet — check `reva-lab library list`)"]
+
     notes = O.sdir(root, a.study, a.technique, "notes.md")
     if not os.path.exists(notes):
         with open(notes, "w", encoding="utf-8") as fp:
             fp.write(
                 f"# {a.technique}\n\nReference {a.from_}-{a.to} s.\n\n"
-                f"## Rendering Stack Hypothesis\n- Engine / libraries (Three.js, HyperFrames, GSAP, D3, shaders):\n\n"
+                f"## Reusable Patterns Found\n" + "\n".join(match_lines) + "\n\n"
+                f"## Rendering Stack Hypothesis\n- Candidate engines to bake off (`reva-code bench {a.study} {a.technique} --tool <engine>`):\n\n"
                 f"## Layout (px at {res})\n"
                 "- Background / paper:\n- Main element / container box:\n- Cards / badges / borders:\n\n"
                 f"## Typography & Colors\n- Fonts (family, weight, sizes):\n- Hex palette & accents:\n\n"
                 f"## Entry Order, Timing & Easing (from 5 fps strip)\n- \n\n"
                 f"## Camera & Explanatory Grammar (why it moves)\n- \n\n"
                 f"## Sound & SFX\n- \n\n"
+                f"## Bench Trials & Bake-Off Verdict\n- \n\n"
                 f"## Gaps after compare\n- \n"
             )
     O.refresh_dossier(root, a.study, st, focus="code")
-    print(f"next: inspect strip + stills in {d}, fill {notes}, rebuild in Branch 1, then reva-code compare {a.study} {a.technique} --mine <mp4> --mine-at ...")
+    if matches:
+        print("matching reusable patterns:")
+        for m in matches:
+            print(f"  * {m['id']} (engine={m['winning_engine']}, skill={m.get('target_skill') or '-'}) -> reva-code reuse {a.study} {a.technique} --pattern {m['id']}")
+    print(f"next: inspect strip + stills in {d}, or init a test bench: reva-code bench {a.study} {a.technique} --tool <engine>")
+
+
+def cmd_bench(a, root):
+    st = O.load_study(root, a.study)
+    sdir = O.sdir(root, a.study)
+    res = lab_engine.init_bench(sdir, a.technique, a.tool, aspect=a.aspect)
+    tech = st.setdefault("techniques", {}).setdefault(a.technique, {"status": "measuring"})
+    if isinstance(tech, dict):
+        tech.setdefault("benches", {})[res["probe"]["id"]] = res["bench_dir"]
+        O.save_study(root, a.study, st)
+    print(f"bench ready [{res['probe']['status'].upper()}] -> {res['bench_dir']}")
+    if res["copied_files"]:
+        print(f"  harness files: {', '.join(res['copied_files'])}")
+    print(f"  config:        {res['bench_json']}")
+    if res["probe"]["callable_via"]:
+        print(f"  callable via:  {res['probe']['callable_via']}")
+    print(f"  next:          render test clip, then run: reva-code compare {a.study} {a.technique} --tool {res['probe']['id']} --mine <mp4> --mine-at ...")
+
+
+def cmd_reuse(a, root):
+    st = O.load_study(root, a.study)
+    pat = lab_library.get_pattern(a.pattern)
+    if not pat:
+        raise SystemExit(f"pattern not found: {a.pattern!r}. Run 'reva-lab library list' to inspect available patterns.")
+
+    tech_dir = O.sdir(root, a.study, a.technique)
+    os.makedirs(tech_dir, exist_ok=True)
+    tech = st.setdefault("techniques", {}).setdefault(a.technique, {"status": "measuring"})
+    if isinstance(tech, dict):
+        tech["reused_from"] = pat["id"]
+        O.save_study(root, a.study, st)
+
+    notes = os.path.join(tech_dir, "notes.md")
+    rej = pat.get("rejected_engines") or []
+    rej_str = ", ".join(
+        f"{r.get('engine')} ({r.get('reason')})" if isinstance(r, dict) else str(r) for r in rej
+    ) or "none recorded"
+    block = (
+        f"\n## Reused Baseline (from `{pat['id']}`) & Delta Checklist\n"
+        f"- **Winning engine:** `{pat['winning_engine']}`\n"
+        f"- **Rejected engines to skip:** {rej_str}\n"
+        f"- **Branch 1 target skill / template:** `{pat.get('target_skill') or '-'}` | `{pat.get('template') or '-'}`\n"
+        f"- **Prior studies:** {', '.join(pat.get('used_in') or []) or 'none'}\n"
+        f"- **Baseline metrics:** `{json.dumps(pat.get('baseline') or {})}`\n"
+        f"- [ ] Compare Video 2 measurements against baseline (layout px, palette, timing, WPM)\n"
+        f"- [ ] Adapt existing template/rig rather than rebuilding from scratch\n"
+    )
+    existing = ""
+    if os.path.exists(notes):
+        with open(notes, encoding="utf-8") as fp:
+            existing = fp.read()
+    if f"from `{pat['id']}`" not in existing:
+        with open(notes, "a" if existing else "w", encoding="utf-8") as fp:
+            if not existing:
+                fp.write(f"# {a.technique}\n")
+            fp.write(block)
+
+    O.refresh_dossier(root, a.study, st, focus="code")
+    print(f"linked {a.study}/{a.technique} -> reusable pattern '{pat['id']}' (engine: {pat['winning_engine']})")
+    print(f"  updated notes -> {notes}")
 
 
 def cmd_stills(a, root):
@@ -182,7 +266,7 @@ def cmd_colors(a, root):
 def cmd_compare(a, root):
     st = O.load_study(root, a.study)
     t = st.get("techniques", {}).get(a.technique)
-    if not t:
+    if not isinstance(t, dict):
         raise SystemExit(f"no technique {a.technique!r}")
     d = O.sdir(root, a.study, a.technique)
     theirs = os.path.join(d, "theirs")
@@ -194,12 +278,73 @@ def cmd_compare(a, root):
 
     O.run_py("technique.py", "stills", O.ref_video(root, a.study), "--at", ",".join(ref_times), "--out", theirs, quiet=True)
     refs = ",".join(os.path.join(theirs, f"full_{C.ts_token(x)}.png") for x in ref_times)
-    O.run_py("technique.py", "compare", "--ref", refs, "--mine", a.mine, "--mine-at", a.mine_at, "--out", d)
+
+    out_name = f"compare_{a.tool}.jpg" if a.tool else "compare.jpg"
+    cmp_args = ["compare", "--ref", refs, "--mine", a.mine, "--mine-at", a.mine_at, "--out", d, "--out-name", out_name]
+    if a.tool:
+        cmp_args += ["--label", a.tool]
+    O.run_py("technique.py", *cmp_args)
+
+    if a.tool:
+        shutil.copy2(os.path.join(d, out_name), os.path.join(d, "compare.jpg"))
+        t.setdefault("trials", {})[a.tool] = {
+            "mine": os.path.abspath(a.mine),
+            "compare": out_name,
+            "compared_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        }
+
     t["status"] = "compared"
     t["mine"] = os.path.abspath(a.mine)
     O.save_study(root, a.study, st)
     O.refresh_dossier(root, a.study, st, focus="code")
-    print(f"next: inspect {os.path.join(d, 'compare.jpg')}, log gaps in notes.md, fix & re-compare, then: reva-code verify {a.study} {a.technique}")
+    print(f"next: inspect {os.path.join(d, out_name)}, record verdict or verify: reva-code verify {a.study} {a.technique}")
+
+
+def _parse_rejected(raw):
+    out = []
+    if not raw:
+        return out
+    for part in raw.split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        if ":" in part:
+            eng, reason = part.split(":", 1)
+            out.append({"engine": eng.strip(), "reason": reason.strip()})
+        else:
+            out.append({"engine": part, "reason": "did not match reference"})
+    return out
+
+
+def cmd_verdict(a, root):
+    st = O.load_study(root, a.study)
+    t = st.get("techniques", {}).get(a.technique)
+    if not isinstance(t, dict):
+        raise SystemExit(f"no technique {a.technique!r}")
+
+    rejected = _parse_rejected(a.rejected)
+    t["winning_engine"] = a.winner
+    if rejected:
+        t["rejected_engines"] = rejected
+    if a.note:
+        t["verdict_note"] = a.note
+    O.save_study(root, a.study, st)
+
+    notes = O.sdir(root, a.study, a.technique, "notes.md")
+    os.makedirs(os.path.dirname(notes), exist_ok=True)
+    lines = [
+        f"\n## Bake-Off Verdict",
+        f"- **Winning engine:** `{a.winner}`",
+    ]
+    if rejected:
+        lines.append("- **Rejected engines:** " + ", ".join(f"`{r['engine']}` ({r['reason']})" for r in rejected))
+    if a.note:
+        lines.append(f"- **Verdict note:** {a.note}")
+    with open(notes, "a" if os.path.exists(notes) else "w", encoding="utf-8") as fp:
+        fp.write("\n".join(lines) + "\n")
+
+    O.refresh_dossier(root, a.study, st, focus="code")
+    print(f"verdict saved for {a.study}/{a.technique}: winner={a.winner}")
 
 
 def cmd_verify(a, root):
@@ -208,15 +353,36 @@ def cmd_verify(a, root):
     if not isinstance(t, dict):
         raise SystemExit(f"no technique {a.technique!r}")
     cmp_path = O.sdir(root, a.study, a.technique, "compare.jpg")
-    if not os.path.exists(cmp_path) and not a.force:
+    tool_cmp = O.sdir(root, a.study, a.technique, f"compare_{a.tool}.jpg") if a.tool else None
+    if not os.path.exists(cmp_path) and not (tool_cmp and os.path.exists(tool_cmp)) and not a.force:
         raise SystemExit(f"no compare.jpg at {cmp_path} - run 'reva-code compare' first (or pass --force)")
+    if a.tool:
+        t["winning_engine"] = a.tool
     t["status"] = "verified"
     t["verified_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     if a.note:
         t["verify_note"] = a.note
+
+    promoted = None
+    if a.promote:
+        tags = [x.strip() for x in a.tags.split(",") if x.strip()] if a.tags else None
+        promoted, _ = lab_library.promote_technique(
+            O.sdir(root, a.study),
+            st,
+            a.technique,
+            pattern_id=a.pattern_id,
+            category=a.category,
+            tags=tags,
+            target_skill=a.target_skill,
+            template=a.template,
+            summary=a.summary,
+        )
+
     O.save_study(root, a.study, st)
     O.refresh_dossier(root, a.study, st, focus="code")
     print(f"verified {a.study}/{a.technique}" + (f" ({a.note})" if a.note else ""))
+    if promoted:
+        print(f"promoted -> pattern '{promoted['id']}' (used_in: {', '.join(promoted['used_in'])})")
     print(f"next: reva-code skill {a.study}")
 
 
@@ -256,7 +422,8 @@ def cmd_status(a, root):
         techs = st.get("techniques") or {}
         for k, t in techs.items():
             if isinstance(t, dict):
-                print(f"   [{t.get('status', 'unknown'):9}] {k:24} {t.get('from', '?')}-{t.get('to', '?')} s")
+                win = f" [{t['winning_engine']}]" if t.get("winning_engine") else ""
+                print(f"   [{t.get('status', 'unknown'):9}] {k:24} {t.get('from', '?')}-{t.get('to', '?')} s{win}")
             else:
                 print(f"   [{'note':9}] {k:24} {t}")
         if not techs:
@@ -297,6 +464,17 @@ def build_parser():
     s.add_argument("--grid", action="store_true", help="also write grid_<t>.png pixel coordinate overlays")
     s.add_argument("--keep-frames", action="store_true")
 
+    s = sub.add_parser("bench", help="initialize a test-bench folder for one candidate engine")
+    s.add_argument("study")
+    s.add_argument("technique")
+    s.add_argument("--tool", required=True, help="engine id from reva-lab engines")
+    s.add_argument("--aspect", choices=["16:9", "9:16", "1:1"])
+
+    s = sub.add_parser("reuse", help="link a proven pattern from lab/library.json and write delta checklist")
+    s.add_argument("study")
+    s.add_argument("technique")
+    s.add_argument("--pattern", required=True, help="pattern id from reva-lab library")
+
     s = sub.add_parser("stills", help="grab extra full-size PNG stills (optional --grid pixel ruler)")
     s.add_argument("study")
     s.add_argument("technique")
@@ -322,18 +500,34 @@ def build_parser():
     s.add_argument("--gain", type=float, default=0.2)
     s.add_argument("--gains")
 
-    s = sub.add_parser("compare", help="side-by-side reference vs rebuild -> compare.jpg")
+    s = sub.add_parser("compare", help="side-by-side reference vs rebuild -> compare.jpg (or compare_<tool>.jpg)")
     s.add_argument("study")
     s.add_argument("technique")
     s.add_argument("--mine", required=True)
     s.add_argument("--mine-at", required=True)
     s.add_argument("--ref-at")
+    s.add_argument("--tool", help="candidate engine id for multi-tool bake-off comparison")
 
-    s = sub.add_parser("verify", help="mark a compared technique as verified proof")
+    s = sub.add_parser("verdict", help="record bake-off winning and rejected engines for a technique")
     s.add_argument("study")
     s.add_argument("technique")
+    s.add_argument("--winner", required=True)
+    s.add_argument("--rejected", help="semicolon-separated 'engine:reason' entries")
+    s.add_argument("--note", default="")
+
+    s = sub.add_parser("verify", help="mark a compared technique as verified proof (optionally --promote)")
+    s.add_argument("study")
+    s.add_argument("technique")
+    s.add_argument("--tool", help="winning engine id if verifying a candidate trial")
     s.add_argument("--note", default="")
     s.add_argument("--force", action="store_true")
+    s.add_argument("--promote", action="store_true", help="promote verified technique into lab/library.json")
+    s.add_argument("--id", "--pattern-id", dest="pattern_id")
+    s.add_argument("--category")
+    s.add_argument("--tags")
+    s.add_argument("--target-skill")
+    s.add_argument("--template")
+    s.add_argument("--summary")
 
     s = sub.add_parser("skill", help="export a proven Branch 1 skill brief (skill-export.md)")
     s.add_argument("study")
@@ -354,10 +548,13 @@ def main(argv=None):
         "start": cmd_start,
         "measure": cmd_measure,
         "add": cmd_add,
+        "bench": cmd_bench,
+        "reuse": cmd_reuse,
         "stills": cmd_stills,
         "colors": cmd_colors,
         "sound": cmd_sound,
         "compare": cmd_compare,
+        "verdict": cmd_verdict,
         "verify": cmd_verify,
         "skill": cmd_skill,
         "status": cmd_status,

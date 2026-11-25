@@ -199,7 +199,8 @@ def compare(a):
             row_canvas = Image.new("RGB", (row_w, hdr_h + body_h), (20, 20, 20))
             draw = ImageDraw.Draw(row_canvas)
             C.draw_badge(draw, (8, 5), f"REF  {os.path.basename(r_path)}", font, bg=(36, 36, 36), fg=(240, 240, 240))
-            C.draw_badge(draw, (col_w + gap + 8, 5), f"MINE  @{mt}s", font, bg=(139, 26, 43), fg=(255, 255, 255))
+            lbl = f"MINE [{a.label}]  @{mt}s" if getattr(a, "label", None) else f"MINE  @{mt}s"
+            C.draw_badge(draw, (col_w + gap + 8, 5), lbl, font, bg=(139, 26, 43), fg=(255, 255, 255))
 
             r_y = hdr_h + (body_h - r_scaled.height) // 2
             m_y = hdr_h + (body_h - m_scaled.height) // 2
@@ -214,7 +215,8 @@ def compare(a):
             out_canvas.paste(row, (0, y))
             y += row.height + gap
 
-        dst = os.path.join(a.out, "compare.jpg")
+        out_name = getattr(a, "out_name", None) or "compare.jpg"
+        dst = os.path.join(a.out, out_name)
         out_canvas.save(dst, quality=90)
         print("reference LEFT, yours RIGHT ->", dst)
         return dst
@@ -252,6 +254,8 @@ def main():
     p.add_argument("--mine", required=True)
     p.add_argument("--mine-at", required=True)
     p.add_argument("--out", required=True)
+    p.add_argument("--out-name", default="compare.jpg")
+    p.add_argument("--label")
 
     a = ap.parse_args()
     {"strip": strip, "stills": stills, "palette": palette, "compare": compare}[a.cmd](a)
