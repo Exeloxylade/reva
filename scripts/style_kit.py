@@ -12,9 +12,11 @@ import textwrap
 try:
     from . import _common as C
     from . import lab_engine
+    from . import research
 except ImportError:
     import _common as C
     import lab_engine
+    import research
 
 _PLACEHOLDER_RE = re.compile(r"<[^>\n]{2,}>")
 
@@ -209,7 +211,49 @@ def write_dossier(study_dir, study_data=None, focus="all"):
         f"- **Picture:** {td.get('aspect') or 'unknown'} | aspect `{td.get('aspect_ratio') or ms.get('aspect_ratio') or '?'}` | format `{td.get('format_kind') or '?'}` | {meta.get('fps', '?')} fps | {meta.get('duration', study.get('duration', '?'))} s",
         f"- **Audio:** {meta.get('audio_channels', '?')} ch @ {meta.get('audio_sample_rate', '?')} Hz | loudness {td_sound.get('lufs', '?')} LUFS | true peak {td_sound.get('true_peak', '?')} dBTP",
         "",
-        "## 2. Pacing & Motion (Measured)",
+        "## 2. Subject Understanding & Research Brain",
+    ]
+
+    r_sum = research.research_summary(study_dir)
+    t_stat = study.get("transcript_status") or ("subtitles" if tr.get("cues") else ("needed" if meta.get("has_audio") else "no-audio"))
+    if tr.get("cues"):
+        lines.append(f"- **Transcript:** `{t_stat}` ({tr.get('words', 0)} words, backend `{tr.get('backend') or 'subtitles'}`) -> `ref/transcript.txt`")
+    elif t_stat == "silent":
+        lines.append("- **Transcript:** `silent` (explicitly marked silent/ASMR)")
+    elif meta.get("has_audio"):
+        lines.append(f"- **Transcript:** **MISSING** (`{t_stat}`) -> run `reva transcribe {name}` (or listen to `ref/audio.mp3` & import via `--from-file`)")
+    else:
+        lines.append("- **Transcript:** `no-audio`")
+
+    if r_sum:
+        r_badge = f"`{r_sum['status']}`" + (" — verify what the video is about via search/docs/images before replicating!" if r_sum["status"] != "researched" else "")
+        lines.append(f"- **Research Brief:** {r_badge} -> `research/brief.md`")
+        if r_sum.get("what_is_it"):
+            lines.append(f"- **What is it?** {r_sum['what_is_it']}")
+        if r_sum.get("domain"):
+            lines.append(f"- **Domain:** `{r_sum['domain']}`")
+        if r_sum.get("core_thesis"):
+            lines.append(f"- **Core thesis:** {r_sum['core_thesis']}")
+        if r_sum.get("concepts"):
+            lines.append("- **Key concepts:** " + "; ".join(f"**{c['term']}** ({c['meaning']})" for c in r_sum["concepts"][:6]))
+        if r_sum.get("sources"):
+            lines.append("- **Research sources:** " + "; ".join(
+                f"`[{s.get('kind', 'article')}]` {s['title']}" + (f" ({s['url']})" if s.get("url") else "")
+                for s in r_sum["sources"][:6]
+            ))
+        if r_sum.get("replication_implications"):
+            lines.append("- **Replication implications:** " + " | ".join(r_sum["replication_implications"][:4]))
+        if r_sum.get("status") != "researched":
+            if r_sum.get("numeric_specs"):
+                lines.append("- **Auto-extracted specs:** " + ", ".join(f"`{x}`" for x in r_sum["numeric_specs"][:8]))
+            if r_sum.get("suggested_queries"):
+                lines.append("- **Suggested web searches:** " + " | ".join(f"`{q}`" for q in r_sum["suggested_queries"][:4]))
+    else:
+        lines.append(f"- **Research Brief:** not initialized yet -> run `reva research init {name}`")
+
+    lines += [
+        "",
+        "## 3. Pacing & Motion (Measured)",
     ]
 
     if cuts:
@@ -233,7 +277,7 @@ def write_dossier(study_dir, study_data=None, focus="all"):
     if word_cnt == 0 and motion.get("samples") and motion.get("still_share", 1.0) < 0.35:
         lines.append("- **Silent ASMR Foley hint:** 0 spoken words + moving visuals detected — consider `reva-style scaffold <study> --silent-asmr --framing fixed-tabletop`.")
 
-    lines += ["", "## 3. Measured Color Palette"]
+    lines += ["", "## 4. Measured Color Palette"]
     if pal.get("main"):
         lines.append("- **Main colors:** " + ", ".join(f"`{c['hex']}` ({c['share']}%)" for c in pal["main"]))
     else:
@@ -242,7 +286,7 @@ def write_dossier(study_dir, study_data=None, focus="all"):
         lines.append("- **Saturated accents:** " + ", ".join(f"`{c['hex']}` ({c['share']}%)" for c in pal["accents"]))
 
     if focus in ("all", "code") or snd:
-        lines += ["", "## 4. Sound & SFX Profile"]
+        lines += ["", "## 5. Sound & SFX Profile"]
         if not snd:
             lines.append("- Not probed yet (`reva-code sound <study>`).")
         elif not snd.get("stereo_separation"):
@@ -258,7 +302,7 @@ def write_dossier(study_dir, study_data=None, focus="all"):
                     f"bright {row['median_centroid_hz']} Hz, harsh {row['median_harsh_pct']}%, vs voice {row['median_vs_voice_db']:+.1f} dB"
                 )
 
-    lines += ["", "## 5. Visual Artifacts & Outputs"]
+    lines += ["", "## 6. Visual Artifacts & Outputs"]
     sheets = sorted(glob.glob(os.path.join(study_dir, "ref", "contact-sheet-*.jpg")))
     if sheets:
         lines.append(f"- **Contact sheets ({len(sheets)}):** " + ", ".join(f"`ref/{os.path.basename(s)}`" for s in sheets))
@@ -278,6 +322,9 @@ def write_dossier(study_dir, study_data=None, focus="all"):
                         extras.append(f"trials `{','.join(sorted(t['trials'].keys()))}`")
                     if t.get("promoted_pattern"):
                         extras.append(f"promoted `{t['promoted_pattern']}`")
+                    aud = t.get("audit")
+                    if isinstance(aud, dict) and aud.get("total"):
+                        extras.append(f"audit `{aud.get('passed', 0)}/{aud['total']}`" + (f" ({aud.get('failed', 0)} fail)" if aud.get("failed") else ""))
                     tail = (" | " + " | ".join(extras)) if extras else ""
                     lines.append(
                         f"- **Technique `{k}`:** status `{t.get('status', 'unknown')}` | {t.get('from', '?')}-{t.get('to', '?')} s | "
@@ -299,7 +346,7 @@ def write_dossier(study_dir, study_data=None, focus="all"):
         elif focus == "style":
             lines.append("- No prompt style scaffolded yet (`reva-style scaffold <study>`).")
 
-    lines += ["", "## 6. Lab Engine Recommendations & Reusable Patterns"]
+    lines += ["", "## 7. Lab Engine Recommendations & Reusable Patterns"]
     try:
         rec = lab_engine.recommend_for_study(study_dir)
         pats = rec.get("matching_patterns") or []
@@ -323,7 +370,7 @@ def write_dossier(study_dir, study_data=None, focus="all"):
         lines.append("- Lab registry unavailable.")
 
     cues = tr.get("cues") or []
-    lines += ["", "## 7. Transcript Preview"]
+    lines += ["", "## 8. Transcript Preview"]
     if cues:
         for c in cues[:20]:
             lines.append(f"- `[{C.fmt_ts(c['start'])}]` {c['text']}")
@@ -696,6 +743,12 @@ def export_skill(study_dir, study_data=None, out_path=None):
                 notes_body = fp.read().strip()
 
         cmp_files = sorted(glob.glob(os.path.join(study_dir, k, "compare*.jpg")))
+        aud_sum = research.checklist_summary(os.path.join(study_dir, k))
+        if aud_sum["total"] and not aud_sum["all_passed"]:
+            gaps.append(
+                f"Technique `{k}` has {aud_sum['pending'] + aud_sum['failed']} unfinished visual audit checkpoint(s) "
+                f"(`reva audit {name} {k} --show`)."
+            )
         tech_sections.append({
             "name": k,
             "badge": badge,
@@ -705,6 +758,7 @@ def export_skill(study_dir, study_data=None, out_path=None):
             "winning_engine": t_dict.get("winning_engine", ""),
             "rejected_engines": t_dict.get("rejected_engines") or [],
             "promoted_pattern": t_dict.get("promoted_pattern", ""),
+            "audit_summary": aud_sum,
             "compare_files": [os.path.basename(c) for c in cmp_files],
             "has_cmp": has_cmp,
             "notes": notes_body,
@@ -722,6 +776,15 @@ def export_skill(study_dir, study_data=None, out_path=None):
     motion = ms.get("motion") or {}
     pal = ms.get("palette") or {}
     td_sound = td.get("sound") or {}
+    tr = _read_json(os.path.join(study_dir, "ref", "transcript.json")) or {}
+    r_sum = research.research_summary(study_dir)
+    t_stat = study.get("transcript_status") or ("subtitles" if tr.get("cues") else ("needed" if meta.get("has_audio") else "no-audio"))
+    if not tr.get("cues") and meta.get("has_audio") and t_stat not in ("silent", "no-audio"):
+        gaps.append(f"Transcript missing (`reva transcribe {name}` or listen to `ref/audio.mp3`).")
+    if not r_sum or r_sum.get("status") != "researched":
+        gaps.append(f"Subject research brief is still `{r_sum.get('status') if r_sum else 'missing'}` (`reva research complete {name} --what ... --domain ...`).")
+    elif not research.has_verified_source(study_dir):
+        gaps.append(f"No verified external URL or saved research asset yet (`reva research fetch` / `images` / `add-source --url`).")
 
     lines = [
         f"# Branch 1 Skill Export: `{name}`",
@@ -733,6 +796,33 @@ def export_skill(study_dir, study_data=None, out_path=None):
             " (" + ", ".join(f"`{sid}`={d.get('status')}" for sid, d in deliveries.items()) + ")"
             if deliveries else " (none yet)"
         ),
+        "",
+        "## Subject Understanding & Research Sources",
+    ]
+    if r_sum:
+        lines += [
+            f"- **Status:** `{r_sum['status']}` | **Domain:** `{r_sum.get('domain') or '?'}`",
+            f"- **What is it?** {r_sum.get('what_is_it') or '(not identified yet)'}",
+        ]
+        if r_sum.get("core_thesis"):
+            lines.append(f"- **Core thesis:** {r_sum['core_thesis']}")
+        if r_sum.get("concepts"):
+            for c in r_sum["concepts"]:
+                extra = []
+                if c.get("specs"):
+                    extra.append(f"specs: {c['specs']}")
+                if c.get("mechanism"):
+                    extra.append(f"mechanism: {c['mechanism']}")
+                lines.append(f"- **Concept — {c['term']}:** {c['meaning']}" + (f" ({'; '.join(extra)})" if extra else ""))
+        if r_sum.get("sources"):
+            for s in r_sum["sources"]:
+                lines.append(f"- **Source `[{s.get('kind', 'article')}]`:** {s['title']}" + (f" ({s['url']})" if s.get("url") else "") + (f" — {s['takeaway']}" if s.get("takeaway") else ""))
+        if r_sum.get("replication_implications"):
+            lines.append("- **Replication implications:** " + " | ".join(r_sum["replication_implications"]))
+    else:
+        lines.append("- Research brief not initialized yet (`reva research init`).")
+
+    lines += [
         "",
         "## Measured Specification",
         f"- **Pacing:** {cuts.get('count', '?')} cuts ({cuts.get('per_min', '?')}/min) | median shot `{cuts.get('median_sec', '?')} s` | p10–p90 `{cuts.get('p10_sec', '?')}-{cuts.get('p90_sec', '?')} s`",
@@ -762,6 +852,9 @@ def export_skill(study_dir, study_data=None, out_path=None):
                 lines.append(f"- **Rejected engines:** {rej_txt}")
             if ts.get("promoted_pattern"):
                 lines.append(f"- **Promoted to library:** `{ts['promoted_pattern']}`")
+            aud_s = ts.get("audit_summary") or {}
+            if aud_s.get("total"):
+                lines.append(f"- **Visual audit:** `{aud_s['passed']}/{aud_s['total']} PASS`" + (f" ({aud_s['failed']} FAIL)" if aud_s.get("failed") else ""))
             if ts["verify_note"]:
                 lines.append(f"- **Verification note:** {ts['verify_note']}")
             if ts.get("compare_files"):

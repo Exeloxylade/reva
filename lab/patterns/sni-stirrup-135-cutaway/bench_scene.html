@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>REVA SNI 2847 Kait Sengkang 135° — RevaCAD Schematic</title>
+  <script src="./three.min.js"></script>
+  <script src="./threejs_schematic.js"></script>
+</head>
+<body>
+  <script>
+    (function () {
+      const ctx = RevaCAD.boot({
+        headerNum: 1,
+        headerTitle: "Kait sengkang 135° (SNI 2847)",
+      });
+      const { scene, camera, hud, V, clay, addMesh } = ctx;
+      const P = RevaCAD.PALETTE;
+      const RB = RevaCAD.rebar;
+      const M = {
+        board: clay(P.board),
+        plate: clay(P.plate),
+        pin: clay(P.pin),
+        main: clay(P.mainBar),
+        ok: clay(P.ok),
+        spall: clay(P.spall),
+        floor: clay(P.floor),
+      };
+
+      /* SCENE 0 (t=0): SINGLE-CORNER 135° BENDING JIG (MANDREL Ø = 4×d) */
+      const grp0 = new THREE.Group();
+      scene.add(grp0);
+      addMesh(grp0, new THREE.BoxGeometry(11, 0.3, 11), M.board, 0, -0.15, 0, false);
+      addMesh(grp0, new THREE.BoxGeometry(3.8, 0.14, 3.8), M.plate, 0, 0.07, 0);
+      const jigC = 0.86, jigRS = 0.062, pinRad = 2.0 * (jigRS * 2.0);
+      const jigSt = RB.buildStirrup135(jigC, 0.14, jigRS, 6.0, M.ok);
+      jigSt.mesh.position.y = 0.28;
+      grp0.add(jigSt.mesh);
+      addMesh(grp0, new THREE.CylinderGeometry(pinRad, pinRad, 0.44, 28), M.pin, jigC, 0.29, jigC);
+      for (const [px, pz] of [[-jigC, jigC], [-jigC, -jigC], [jigC, -jigC]]) {
+        addMesh(grp0, new THREE.CylinderGeometry(0.14, 0.14, 0.38, 22), M.pin, px, 0.26, pz);
+      }
+      const line0End = V(jigC + jigSt.R, 0.28, jigC + 1.05);
+      const line90End = V(jigC - 0.85, 0.28, jigC + jigSt.R);
+
+      /* SCENE 1 (t=1): SNI 2847 CROSS-SECTION — SELIMUT vs INTI BETON & 4d / 6d / 75mm */
+      const grp1 = new THREE.Group();
+      scene.add(grp1);
+      addMesh(grp1, new THREE.BoxGeometry(11, 0.3, 11), M.floor, 0, -0.15, 0, false);
+      const c1 = 0.90, rMain1 = 0.14, rS1 = 0.056;
+      const st1 = RB.buildStirrup135(c1, rMain1, rS1, 6.0, M.ok);
+      const coreHalf = c1 + st1.R, coverHalf = coreHalf + 0.56, slabH = 0.92, rimW = coverHalf - coreHalf;
+      grp1.add(RB.buildCoreAndCoverCutaway(coreHalf, coverHalf, slabH));
+      const barGeo1 = new THREE.CylinderGeometry(rMain1, rMain1, 1.38, 22);
+      for (const [bx, bz] of [[-c1, -c1], [c1, -c1], [c1, c1], [-c1, c1]]) {
+        addMesh(grp1, barGeo1, M.main, bx, 0.69, bz);
+      }
+      st1.mesh.position.y = 1.06;
+      grp1.add(st1.mesh);
+
+      /* SCENE 2 (t=2): CAUSAL FAILURE CHAIN (COVER SPALL -> 90° OPENS -> BUCKLING) vs 135° LOCK */
+      const grp2 = new THREE.Group();
+      scene.add(grp2);
+      addMesh(grp2, new THREE.BoxGeometry(12, 0.3, 12), M.floor, 0, -0.15, 0, false);
+      const c2 = 0.68, rMain2 = 0.115, rS2 = 0.044;
+      const coreH2 = c2 + rMain2 + rS2, covH2 = coreH2 + 0.38;
+      addMesh(grp2, new THREE.BoxGeometry(coreH2 * 2, 4.9, coreH2 * 2), clay(P.coreMint, { transparent: true, opacity: 0.48 }), 0, 2.45, 0, false);
+      addMesh(grp2, new THREE.BoxGeometry(covH2 * 2, 2.15, covH2 * 2), clay(P.coverGrey, { transparent: true, opacity: 0.42 }), 0, 1.075, 0, false);
+      addMesh(grp2, new THREE.BoxGeometry(0.46, 0.52, 0.30), M.spall, 1.38, 2.55, 1.45).rotation.set(0.35, 0.4, -0.5);
+      addMesh(grp2, new THREE.BoxGeometry(0.38, 0.42, 0.26), M.spall, 1.62, 1.75, 1.25).rotation.set(-0.4, 0.2, 0.6);
+
+      for (const [bx, bz] of [[-c2, -c2], [c2, -c2], [c2, c2], [-c2, c2]]) {
+        grp2.add(RB.buildBucklingColumnBar(bx, bz, 5.0, rMain2, 1.9, 4.75, (bx > 0 && bz > 0) ? 0.56 : 0.22, M.main));
+      }
+      for (const yOk of [0.85, 1.65]) {
+        const sOk = RB.buildStirrup135(c2, rMain2, rS2, 5.5, M.ok);
+        sOk.mesh.position.y = yOk;
+        grp2.add(sOk.mesh);
+      }
+      for (const [yBad, openAmt] of [[2.65, 0.52], [3.45, 0.74], [4.25, 0.58]]) {
+        const h90 = RB.buildFailingHoop90(c2, rMain2, rS2, openAmt);
+        h90.position.y = yBad;
+        grp2.add(h90);
+      }
+
+      window.renderAt = function (t) {
+        hud.clear();
+        const mode = t < 0.5 ? 0 : (t < 1.5 ? 1 : 2);
+        grp0.visible = mode === 0;
+        grp1.visible = mode === 1;
+        grp2.visible = mode === 2;
+
+        if (mode === 0) {
+          ctx.setSubtitle("Tekukan tunggal di 1 sudut: mandrel Ø ≥ 4×d, sudut 135° ke inti");
+          camera.position.set(2.7, 6.45, 3.45);
+          camera.lookAt(0.22, 0.25, 0.28);
+          camera.updateMatrixWorld();
+
+          const { cP, p0, p1 } = hud.angleSector(V(jigC, 0.28, jigC), line0End, V(jigSt.tipB.x, 0.28, jigSt.tipB.z), 150, "#15803d", "rgba(21,128,61,0.22)", 1);
+          const p90 = hud.proj(line90End);
+          hud.mkSvg("line", { x1: cP.x, y1: cP.y, x2: p0.x, y2: p0.y, stroke: "#64748b", "stroke-width": 4, "stroke-dasharray": "9 7" });
+          hud.mkSvg("line", { x1: cP.x, y1: cP.y, x2: p90.x, y2: p90.y, stroke: "#dc2626", "stroke-width": 4, "stroke-dasharray": "8 6" });
+          void p1;
+
+          hud.chip(V(jigC + 0.15, 0.28, jigC + 0.92), "0° (lurus)", "muted", 85, 38, true);
+          hud.chip(V(jigC - 0.55, 0.28, jigC + 0.22), "90° hanya\ndi selimut", "red", -78, 92, true);
+          hud.chip(V(jigSt.tipB.x, 0.28, jigSt.tipB.z).lerp(V(jigC, 0.28, jigC), 0.35), "135° masuk ke inti", "deg", -115, -88, true);
+          hud.bracket(V(jigC - pinRad, 0.50, jigC), V(jigC + pinRad, 0.50, jigC), "Ø tekuk min = 4×d", "blue", "#1d4ed8", 0, -28, 125, -72);
+        } else if (mode === 1) {
+          ctx.setSubtitle("Tabel 25.3.2: ekor kait l_ext ≥ max(6×d, 7,5 cm) di inti beton");
+          camera.position.set(2.55, 6.45, 2.95);
+          camera.lookAt(0.08, 0.88, 0.15);
+          camera.updateMatrixWorld();
+
+          hud.chip(V(-0.35, 0.98, -0.25), "Inti beton (terkekang)", "mint", -35, -100, true);
+          hud.chip(V(0.55, 0.95, coreHalf + rimW * 0.52), "Selimut beton\n(4 cm — luar)", "muted", 125, 52, true);
+
+          const aW = st1.tanA.clone().setY(1.08), bW = st1.tipA.clone().setY(1.08);
+          hud.bracket(aW, bW, "6×d", "green", "#15803d", 42, -16, 62, 0);
+          hud.chip(aW.clone().lerp(bW, 0.68), "min 7,5 cm\n(D10 → 75 mm)", "green", 125, -92, true);
+
+          const dMid = st1.tanB.clone().lerp(st1.tipB, 0.58).setY(1.05);
+          const dPerp = V(-Math.SQRT1_2, 0, Math.SQRT1_2).multiplyScalar(rS1 * 1.15);
+          hud.bracket(dMid.clone().sub(dPerp), dMid.clone().add(dPerp), "d", "blue", "#1d4ed8", 0, 0, -76, -12);
+          hud.chip(V(c1 + st1.R * 0.72, 1.06, c1 + st1.R * 0.72), "Ø bengkok 4×d", "amber", 145, 68, true);
+        } else {
+          ctx.setSubtitle("Akibat selimut pecah: kait 90° terbuka → besi utama buckling");
+          camera.position.set(7.1, 4.4, 4.8);
+          camera.lookAt(0.0, 2.55, 0.0);
+          camera.updateMatrixWorld();
+
+          hud.chip(V(1.38, 2.55, 1.45), "1. Selimut beton\nterkelupas", "muted", 145, -36, true);
+          hud.chip(V(c2 + 0.45, 3.45, c2 + 0.55), "2. Kait 90° hilang penahan\n→ begel terbuka", "red", -110, -78, true);
+          hud.chip(V(c2 + 0.42, 3.35, -c2), "3. Besi utama\nmelengkung keluar", "red", -115, 28, true);
+          hud.chip(V(c2 * 0.45, 1.55, c2 * 0.45), "Kait 135° terkunci\ndi inti beton ✓", "green", 140, 72, true);
+        }
+        ctx.renderer.render(scene, camera);
+      };
+
+      window.renderAt(ctx.tInit);
+      document.body.dataset.ready = "1";
+    })();
+  </script>
+</body>
+</html>

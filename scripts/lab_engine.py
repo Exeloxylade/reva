@@ -10,9 +10,11 @@ import shutil
 try:
     from . import _common as C
     from . import lab_library
+    from . import research
 except ImportError:
     import _common as C
     import lab_library
+    import research
 
 
 def _read_json(path):
@@ -93,7 +95,7 @@ def probe_engine(eng, lab_root=None):
             if hit and hit not in resolved_bins:
                 resolved_bins.append(hit)
         for pat in win_globs:
-            for hit in sorted(glob.glob(pat)):
+            for hit in sorted(glob.glob(os.path.expandvars(pat))):
                 if os.path.exists(hit) and hit not in resolved_bins:
                     resolved_bins.append(hit)
         checks.append(bool(resolved_bins))
@@ -216,8 +218,42 @@ def register_engine(entry, lab_root=None):
     return existing, False
 
 
-def init_bench(study_dir, technique, engine_id, aspect=None, lab_root=None):
-    """Initialize <study>/<technique>/bench/<engine_id>/ with starter harness and bench.json."""
+def _find_three_js():
+    """Locate a local three.min.js build for offline headless Three.js benches."""
+    home = os.path.expanduser("~")
+    cands = [
+        os.environ.get("REVA_THREE_JS"),
+        os.path.join(C.REPO_ROOT, "lab", "harnesses", "threejs-webgl", "three.min.js"),
+        os.path.join(home, ".kiro", "crew", "skills", "gem-3d-world", "lib", "three.min.js"),
+        os.path.join(C.REPO_ROOT, "node_modules", "three", "build", "three.min.js"),
+    ]
+    cands.extend(sorted(glob.glob(os.path.join(home, ".kiro", "crew", "workspace", "videos", "*", "lib", "three.min.js"))))
+    for c in cands:
+        if c and os.path.exists(c):
+            return os.path.abspath(c)
+    return None
+
+
+def _stage_kit_files(engine_id, bench_dir, lab_root=None):
+    """Copy matching shared starter primitives from lab/kit/ into a bench directory."""
+    kit_map = {
+        "threejs-webgl": ("threejs_schematic.js",),
+        "manim": ("manim_schematic.py",),
+    }
+    needed = kit_map.get(engine_id) or ()
+    k_dir = lab_library.kit_dir(lab_root=lab_root)
+    staged = []
+    for fname in needed:
+        src = os.path.join(k_dir, fname)
+        dst = os.path.join(bench_dir, fname)
+        if os.path.isfile(src):
+            shutil.copy2(src, dst)
+            staged.append(fname)
+    return staged
+
+
+def init_bench(study_dir, technique, engine_id, aspect=None, lab_root=None, from_pattern=None):
+    """Initialize <study>/<technique>/bench/<engine_id>/ with shared kit, proven pattern code, or starter harness."""
     eng = get_engine(engine_id, lab_root=lab_root)
     if not eng:
         raise SystemExit(
@@ -228,7 +264,31 @@ def init_bench(study_dir, technique, engine_id, aspect=None, lab_root=None):
     bench_dir = os.path.join(study_dir, technique, "bench", eng["id"])
     os.makedirs(bench_dir, exist_ok=True)
 
-    copied = []
+    st = _read_json(os.path.join(study_dir, "study.json")) or {}
+    t_info = (st.get("techniques") or {}).get(technique) or {}
+    chosen_pat = from_pattern or t_info.get("reused_from") or ""
+
+    kit_files = _stage_kit_files(eng["id"], bench_dir, lab_root=lab_root)
+
+    reused_code = []
+    bootstrapped_from = ""
+    if chosen_pat:
+        pat = lab_library.get_pattern(chosen_pat, lab_root=lab_root)
+        if pat and pat.get("code_dir") and (pat.get("winning_engine") == eng["id"]):
+            cdir_raw = pat["code_dir"]
+            pat_dir = cdir_raw if os.path.isabs(cdir_raw) else os.path.join(C.lab_dir(lab_root), cdir_raw)
+            if os.path.isdir(pat_dir):
+                bootstrapped_from = pat["id"]
+                for fname in sorted(os.listdir(pat_dir)):
+                    if fname == "pattern.json":
+                        continue
+                    src = os.path.join(pat_dir, fname)
+                    dst = os.path.join(bench_dir, fname)
+                    if os.path.isfile(src) and not os.path.exists(dst):
+                        shutil.copy2(src, dst)
+                        reused_code.append(fname)
+
+    copied = list(kit_files) + list(reused_code)
     h_dir = probed.get("harness_dir")
     if h_dir and os.path.isdir(h_dir):
         for fname in sorted(os.listdir(h_dir)):
@@ -238,11 +298,21 @@ def init_bench(study_dir, technique, engine_id, aspect=None, lab_root=None):
                 shutil.copy2(src, dst)
                 copied.append(fname)
 
+    three_dst = ""
+    if eng["id"] == "threejs-webgl":
+        three_target = os.path.join(bench_dir, "three.min.js")
+        if os.path.exists(three_target):
+            three_dst = three_target
+        else:
+            three_src = _find_three_js()
+            if three_src:
+                shutil.copy2(three_src, three_target)
+                copied.append("three.min.js")
+                three_dst = three_target
+
     td = _read_json(os.path.join(study_dir, "ref", "teardown.json")) or {}
     ms = _read_json(os.path.join(study_dir, "ref", "measure.json")) or {}
-    st = _read_json(os.path.join(study_dir, "study.json")) or {}
     meta = td.get("video") or {}
-    t_info = (st.get("techniques") or {}).get(technique) or {}
 
     chosen_aspect = aspect or td.get("aspect_ratio") or ms.get("aspect_ratio") or st.get("aspect_ratio") or "16:9"
     w = meta.get("width") or (1080 if chosen_aspect == "9:16" else 1920)
@@ -250,6 +320,21 @@ def init_bench(study_dir, technique, engine_id, aspect=None, lab_root=None):
     t_from = t_info.get("from", 0)
     t_to = t_info.get("to", 3)
     dur_sec = max(1.0, round(float(t_to) - float(t_from), 2)) if isinstance(t_from, (int, float)) and isinstance(t_to, (int, float)) else 3.0
+
+    tech_dir = os.path.join(study_dir, technique)
+    ck = research.seed_checklist(
+        study_dir,
+        tech_dir,
+        technique_name=technique,
+        start_sec=float(t_from) if isinstance(t_from, (int, float)) else None,
+        end_sec=float(t_to) if isinstance(t_to, (int, float)) else None,
+    )
+    specs = research.collect_must_show(
+        study_dir,
+        technique_name=technique,
+        start_sec=float(t_from) if isinstance(t_from, (int, float)) else None,
+        end_sec=float(t_to) if isinstance(t_to, (int, float)) else None,
+    )
 
     bench_cfg = {
         "study": st.get("study") or os.path.basename(os.path.abspath(study_dir)),
@@ -266,6 +351,16 @@ def init_bench(study_dir, technique, engine_id, aspect=None, lab_root=None):
         "to_sec": t_to,
         "duration_sec": dur_sec,
         "palette": ms.get("palette") or {},
+        "transcript_excerpt": research.transcript_window_excerpt(study_dir, float(t_from or 0), float(t_to or dur_sec)),
+        "research_context": research.research_summary(study_dir),
+        "anatomy_specs": specs,
+        "render_mode": "schematic-clay-first",
+        "kit_files": kit_files,
+        "bootstrapped_from_pattern": bootstrapped_from,
+        "reused_code_files": reused_code,
+        "checklist_path": research.checklist_path(tech_dir),
+        "checklist_items": len(ck.get("items") or []),
+        "three_js": three_dst,
         "app_dir": probed.get("app_dir") or C.find_app(),
     }
     bench_json = os.path.join(bench_dir, "bench.json")
@@ -275,6 +370,9 @@ def init_bench(study_dir, technique, engine_id, aspect=None, lab_root=None):
         "bench_dir": bench_dir,
         "bench_json": bench_json,
         "copied_files": copied,
+        "kit_files": kit_files,
+        "bootstrapped_from_pattern": bootstrapped_from,
+        "reused_code_files": reused_code,
         "probe": probed,
         "config": bench_cfg,
     }
@@ -303,6 +401,21 @@ def recommend_for_study(study_dir, tags=None, lab_root=None):
         for tok in re.split(r"[^a-z0-9]+", tech_name.lower()):
             if len(tok) >= 2 and tok not in signals:
                 signals.append(tok)
+
+    r_sum = research.research_summary(study_dir)
+    if r_sum:
+        domain_terms = [r_sum.get("domain") or ""] + [c.get("term") or "" for c in (r_sum.get("concepts") or [])]
+        added_research = 0
+        for raw_term in domain_terms:
+            for tok in re.split(r"[^a-z0-9-]+", str(raw_term).lower()):
+                tok = tok.strip("-")
+                if len(tok) >= 3 and tok not in signals:
+                    signals.append(tok)
+                    added_research += 1
+                    if added_research >= 12:
+                        break
+            if added_research >= 12:
+                break
 
     if still_share is not None:
         if still_share >= 0.60:

@@ -22,54 +22,58 @@ description: "BRANCH 2A - REVA Code (Pure Coding Video Reverse Engineering). Dec
 
 ---
 
-## 5-Step Coding Reverse-Engineering & Test-Bench Loop
+## The 3-Phase Brain + Coding Reverse-Engineering Loop
 
-Isolate **one technique/rig at a time** — never attempt an entire multi-scene film in one blind pass.
+Never reverse-engineer pixels blindly without knowing what the narrator is explaining:
 
-0. **Check the Engineering Lab before building from scratch:**
+1. **Scrape & Transcribe First (`reva transcribe`):**
    ```cmd
-   python reva_lab.py engines
-   python reva_lab.py library search "animated map"
+   python reva_code.py scrape my-study <url-or-file> [--transcribe]
+   python reva.py transcribe my-study
    ```
-   If Video 1 already solved a similar pattern (e.g., `animated-route-map`, `data-line-chart-photo-cards`), reuse that baseline instead of reinventing it.
+   Produces `dossier.md`, `ref\contact-sheet-*.jpg`, `ref\measure.json`, `ref\sound.json`, and `ref\transcript.{json,txt}` (or `ref\audio.mp3` if no subtitles exist so you can listen directly with `read_file` and save via `--from-file` / `--from-text`, or mark `--silent`).
 
-1. **Scrape the whole video first:**
+2. **Learn & Research from the Internet (`reva research`):**
+   Extract claims (`reva research claims my-study`), search authoritative specs, engineering articles & Wikimedia diagrams (`search_web`, `reva research search`, `reva research images --download`, `reva research fetch <url>`), and lock **physical cause-effect mechanism + verified standard specs + geometric anatomy + `must_show` checkpoints** before writing any 3D/2D code (`research complete` requires at least one real external URL or saved asset):
    ```cmd
-   python reva_code.py scrape my-study <url-or-file>
+   python reva.py research auto my-study
+   python reva.py research add-concept my-study --term "<term>" --meaning "<definition>" --mechanism "<cause -> effect physics>" --specs "<exact standard numbers>" --anatomy "<exact geometry>" --must-show "<falsifiable check>" --wrong "<common bug>" --at 16.5,21.5
+   python reva.py research complete my-study --what "<what the video is>" --domain "<domain>" --implication "<how understanding shapes the schematic>"
    python reva_lab.py recommend my-study
    ```
-   Produces `studies\my-study\dossier.md` (including matching lab patterns and candidate engines), timestamped `ref\contact-sheet-*.jpg`, `ref\measure.json`, `ref\sound.json`, and `ref\transcript.txt`.
+   *(Or step manually: `research claims` -> `search` -> `images --download 1` -> `fetch <url>`.)*
 
-2. **Isolate & measure one technique (pixels, frames, colors, sound):**
+3. **Check Lab & Isolate One Technique (`reva-code add`, `reuse`):**
    ```cmd
-   python reva_code.py add my-study line-chart --from 35 --to 59 --grid
-   python reva_code.py stills my-study line-chart --at 44,56 --grid
-   python reva_code.py colors my-study line-chart --at 44
+   python reva_lab.py library search "animated map"
+   python reva_code.py add my-study stirrup-hook --from 16 --to 37 --grid
+   python reva_code.py stills my-study stirrup-hook --at 22.5,27.5 --grid
+   python reva_code.py colors my-study stirrup-hook --at 22.5
    python reva_code.py sound my-study --mode side --auto
    ```
-   - `add` automatically checks `lab/library.json` for matching reusable patterns. If a match fits, link it:
-     `python reva_code.py reuse my-study line-chart --pattern data-line-chart-photo-cards`
-   - `theirs\_strip_35-59.jpg`: 5 fps motion strip (count frames × `0.2 s` for entry delays, holds, and easing).
-   - `theirs\grid_*.png`: 100px/200px coordinate ruler + center crosshair (`WxH` verified) for exact px layout measurement.
-   - `notes.md`: record rendering stack hypothesis, exact px boxes, typography (load free Google Fonts via `@font-face` — never system fonts), hex colors, entry timing, camera grammar, and SFX levels.
+   - `add` seeds `checklist.json` from `must_show`, injects the `[from..to]` spoken excerpt + mechanism + specs + anatomy + traps into `notes.md`, and checks `lab/library.json`.
+   - `theirs\_strip_*.jpg`: 5 fps motion strip (`0.2 s` per frame); `theirs\grid_*.png`: 100px/200px ruler (`WxH` verified).
 
-3. **Test-bench bake-off, compare, and verdict:**
-   - Initialize isolated starter benches for 1+ candidate engines and render short 3–10 s spikes with your own content/data:
+4. **Schematic / Clay-First Test Bench, Zoomed Compare & Hard Audit Gate (`bench`, `compare --crop`, `audit`, `verify`):**
+   - **Zero texture waste rule:** Never spend cycles on bump maps, concrete speckles, wood grain, or foliage inside the bench! Use flat/clay role-coded CAD colors so 100% of your effort goes into **exact geometry, true proportions, cross-sections, and clear causal explanation**.
+   - Initialize the bench, render target stills, inspect BOTH full-frame and **cropped close-up zoom**, then pass every `must_show` check (`verify` **blocks** until `checklist.json` passes 100%):
    ```cmd
-   python reva_code.py bench my-study line-chart --tool hyperframes-2d
-   python reva_code.py compare my-study line-chart --tool hyperframes-2d --mine bench\hyperframes-2d\out.mp4 --mine-at 12,24 --ref-at 44,56
-   python reva_code.py verdict my-study line-chart --winner hyperframes-2d --rejected "ffmpeg-compositor:cannot animate D3 paths cleanly" --note "Crisp SVG + Poppins match"
+   python reva_code.py run-bench my-study stirrup-hook --tool threejs-webgl --at 0,1,2 --ref-at 22.5,27.5,37.0
+   python reva_code.py verdict my-study stirrup-hook --winner threejs-webgl --note "Continuous TubeGeometry 135-deg hook"
    ```
-   - Verify after the user's eye check confirms a match (optionally promoting straight into `lab/library.json`):
+   *(Or run steps individually: `bench` -> `render_bench.py --at 0,1,2` -> `compare` -> `compare --crop ...`.)*
+   - Visually inspect BOTH `compare_<tool>.jpg` and `compare_<tool>_zoom.jpg`. Record pass/fail per `must_show` checkpoint — `verify` **blocks** until every visual audit item passes:
    ```cmd
-   python reva_code.py verify my-study line-chart --tool hyperframes-2d --note "Eye-checked" --promote --category data-chart --tags "chart,line-chart,d3"
+   python reva_code.py audit my-study stirrup-hook --show
+   python reva_code.py audit my-study stirrup-hook --pass 1 --pass 2 --note "Verified on _zoom.jpg"
+   python reva_code.py verify my-study stirrup-hook --tool threejs-webgl --note "Eye-checked" --promote --category 3d-explainer --tags "3d,cutaway"
    ```
 
-4. **Export proven skill brief for Branch 1:**
+5. **Export Proven Skill Brief for Branch 1 (`skill`):**
    ```cmd
    python reva_code.py skill my-study
    ```
-   Writes `skill-export.md` listing `[VERIFIED]` / `[COMPARED]` / `[UNVERIFIED]` status, winning/rejected engines, candidate compare sheets, and promoted pattern IDs before adding `## Technique: <name> (measured)` + template into `Exeloxylade/video-making-skills`.
+   Writes `skill-export.md` listing subject research sources, `[VERIFIED]` / `[COMPARED]` / `[UNVERIFIED]` status, winning/rejected engines, candidate compare sheets, and promoted pattern IDs before adding `## Technique: <name> (measured)` + template into `Exeloxylade/video-making-skills`.
 
 ---
 
@@ -82,13 +86,15 @@ Isolate **one technique/rig at a time** — never attempt an entire multi-scene 
 | `start` / `measure` | Run teardown or re-measure cuts, still/moving %, palette, WPM |
 | `add <study> <tech> --from <s> --to <s> [--grid]` | 5 fps strip + 3 full stills (optional `grid_*.png`) + pattern check + `notes.md` |
 | `bench <study> <tech> --tool <engine>` | Initialize `bench/<engine>/` with starter harness and measured `bench.json` |
+| `run-bench <study> <tech> [--tool <e>] [--at ...]` | 1-command auto-init (if needed) + `render_bench.py` + full & zoomed `compare` + audit status |
 | `reuse <study> <tech> --pattern <id>` | Link proven library pattern and append baseline + delta checklist to `notes.md` |
 | `stills <study> <tech> --at <t1,t2> [--grid]` | Extra full-res PNG stills with optional pixel coordinate overlay |
 | `colors <study> [<tech>] [--at <t>]` | Extract main + saturated accent hex colors |
 | `sound <study> [--mode events\|side\|analyze\|audition]` | Stereo L-R SFX events, cut side jumps, WAV metrics, or audition video |
-| `compare <study> <tech> --mine <mp4> [--tool <engine>]` | Render `compare.jpg` (and `compare_<tool>.jpg` when `--tool` is passed) |
+| `compare <study> <tech> --mine <mp4|imgs> [--crop x,y,w,h] [--schematic <img>]` | Full-frame or zoomed side-by-side comparison (accepts MP4 or direct PNG stills) |
+| `audit <study> <tech> [--add ...] [--pass <id>] [--fail <id>] [--show]` | Inspect and pass/fail visual anatomy checkpoints in `checklist.json` |
 | `verdict <study> <tech> --winner <engine>` | Record winning and rejected candidate engines in `study.json` & `notes.md` |
-| `verify <study> <tech> [--tool ...] [--promote]` | Mark compared technique as verified proof and optionally promote to `lab/library.json` |
+| `verify <study> <tech> [--tool ...] [--promote]` | Hard visual audit gate + mark verified proof (optionally promote to `lab/library.json`) |
 | `skill <study> [--out <file>]` | Export `skill-export.md` with proof summary for Branch 1 |
 | `status [<study>]` | Show studies, winning engines, and `[verified]` / `[compared]` / `[measuring]` status |
 

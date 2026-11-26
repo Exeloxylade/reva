@@ -7,8 +7,9 @@ Three specialized tools share one measurement engine and Engineering Lab:
   reva style <cmd> ...    (or reva_style.py / reva-style.cmd) Prompt-style cloning -> Automated-Lunch-Free
 
 Direct top-level shortcuts also work:
+  Brain:   transcribe, research
   Lab:     engines, register, harnesses, recommend, library, promote, promote-style, sync-app
-  Coding:  start, add, bench, reuse, stills, colors, sound, compare, verdict, verify, skill
+  Coding:  start, add, bench, reuse, stills, colors, sound, compare, audit, verdict, verify, skill
   Style:   beats, scaffold, check, deliver
   Shared:  doctor, scrape, measure, status
 """
@@ -19,9 +20,10 @@ import reva_code
 import reva_lab
 import reva_style
 
-_LAB_CMDS = {"engines", "register", "harnesses", "recommend", "library", "promote", "promote-style", "sync-app"}
+_BRAIN_CMDS = {"transcribe", "research"}
+_LAB_CMDS = {"engines", "register", "harnesses", "recommend", "library", "kit", "promote", "promote-style", "sync-app"}
 _STYLE_CMDS = {"doctor", "beats", "scaffold", "check", "deliver"}
-_CODE_CMDS = {"start", "measure", "add", "bench", "reuse", "stills", "colors", "sound", "compare", "verdict", "verify", "skill", "status"}
+_CODE_CMDS = {"start", "measure", "add", "bench", "run-bench", "reuse", "stills", "colors", "sound", "compare", "audit", "verdict", "verify", "skill", "status"}
 _STYLE_SCRAPE_FLAGS = ("--style", "--beats", "--framing", "--app")
 
 
@@ -77,6 +79,8 @@ def main(argv=None):
         )
         target = reva_style if has_style_flag else reva_code
         return target.main(root_args + rest)
+    if cmd in _BRAIN_CMDS:
+        return reva_code.main(root_args + rest)
     if cmd in _LAB_CMDS:
         return reva_lab.main(root_args + lab_args + rest)
     if cmd in _STYLE_CMDS:

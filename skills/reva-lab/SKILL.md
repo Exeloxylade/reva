@@ -6,9 +6,11 @@ description: "BRANCH 2C - REVA Engineering Lab (Extensible Engine Registry, Mult
 # REVA Engineering Lab
 
 **CLI:** `python reva_lab.py ...` (or `reva-lab` / `reva lab ...`).
-**Data:** [`lab/engines.json`](../../lab/engines.json) (extensible code-callable engine registry), [`lab/library.json`](../../lab/library.json) (cross-study reusable pattern library), and [`lab/harnesses/`](../../lab/harnesses/) (starter test-bench rigs).
+**Data:** [`lab/engines.json`](../../lab/engines.json) (extensible code-callable engine registry), [`lab/library.json`](../../lab/library.json) (cross-study reusable pattern library), [`lab/kit/`](../../lab/kit/) (shared reusable CAD/diagram primitives), [`lab/patterns/`](../../lab/patterns/) (verified code snapshots + AST symbol index), and [`lab/harnesses/`](../../lab/harnesses/) (starter test-bench rigs).
 
-The Engineering Lab connects reference video measurements to **actual runnable tools** on your machine and compounds learnings across videos so Video 2 reuses Video 1's proven engines, templates, and rejected-tool lessons instead of starting over.
+The Engineering Lab connects reference video measurements **and subject research** to **actual runnable tools** on your machine and compounds both visual learnings AND **actual structured code** across videos so Video 2's bench bootstraps straight from Video 1's proven modules and snapshots (`threejs_schematic.js` `RevaCAD`, `manim_schematic.py`, `lab/patterns/<id>/`) instead of blank starter cubes.
+
+> Always run **Transcribe (`reva transcribe`) -> Internet Learning & Visual Anatomy (`reva research claims / search / images / fetch / add-concept --mechanism --specs --anatomy --must-show`) -> `research complete`** before `recommend` and `bench`, so `bench.json` receives `render_mode: schematic-clay-first`, `anatomy_specs` (`mechanism` + `specs`), and `checklist.json` enforces every visual requirement before `verify`. Keep bench rigs schematic/clay-first with zero texture polish waste.
 
 ---
 
@@ -33,14 +35,12 @@ The Engineering Lab connects reference video measurements to **actual runnable t
      ```
      This populates `notes.md` with the proven winning engine, rejected engines to skip, Branch 1 template path, baseline metrics, and a delta checklist.
 
-3. **Run Multi-Tool Test-Bench Bake-Offs (`bench`, `compare --tool`, `verdict`)**
-   - When multiple candidate engines might match a reference technique, initialize isolated bench trials and compare them side-by-side without overwriting results:
+3. **Run Multi-Tool Test-Bench Bake-Offs (`bench`, `run-bench`, `compare --tool`, `verdict`)**
+   - When multiple candidate engines might match a reference technique, initialize & run isolated bench trials in 1 command (auto-renders stills + builds both full and zoomed compare sheets) without overwriting results:
      ```cmd
-     python reva_code.py bench my-study hero-rig --tool threejs-webgl
-     python reva_code.py bench my-study hero-rig --tool blender-bpy
-     python reva_code.py compare my-study hero-rig --tool threejs-webgl --mine bench/threejs-webgl/out.mp4 --mine-at 1,2 --ref-at 12,14
-     python reva_code.py compare my-study hero-rig --tool blender-bpy --mine bench/blender-bpy/out.mp4 --mine-at 1,2 --ref-at 12,14
-     python reva_code.py verdict my-study hero-rig --winner blender-bpy --rejected "threejs-webgl:lacked soft GI shadows" --note "Matched reference lighting"
+     python reva_code.py run-bench my-study hero-rig --tool threejs-webgl --at 0,1,2 --ref-at 12,14,16
+     python reva_code.py run-bench my-study hero-rig --tool manim --at 0,1,2 --ref-at 12,14,16
+     python reva_code.py verdict my-study hero-rig --winner threejs-webgl --rejected "manim:static 3D camera" --note "Matched reference cutaway"
      ```
 
 4. **Promote Proven Patterns Back Into the Lab (`verify --promote`, `promote`, `promote-style`)**
@@ -60,7 +60,8 @@ The Engineering Lab connects reference video measurements to **actual runnable t
 | `register <id> --strengths "..." [...]` | Register or update a new code-callable engine in `lab/engines.json` |
 | `harnesses` | List starter test-bench harnesses in `lab/harnesses/` |
 | `recommend <study> [--tags "..."] [--json]` | Match past reusable patterns and rank ready/upgrade engines for a study |
-| `library list \| search <q> \| show <id>` | Browse, search, or inspect cross-study reusable patterns |
+| `library list \| search <q> \| show <id> \| code <id>` | Browse, search, inspect JSON or saved source structure + symbols |
+| `kit` | List shared modular code primitives in `lab/kit/` |
 | `promote <study> <technique> [...]` | Promote a verified coding technique into `lab/library.json` |
 | `promote-style <study> [...]` | Promote a completed `reva-style` style into `lab/library.json` |
 | `sync-app [--app <dir>] [--json]` | Scan `Automated-Lunch-Free/styles/*` and sync all validated styles into `lab/library.json` |

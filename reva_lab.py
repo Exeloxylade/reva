@@ -138,7 +138,9 @@ def cmd_library(a, root):
         rows = lab_library.search_patterns(category=a.category, engine=a.engine, lab_root=a.lab_dir)
         print(f"=== REUSABLE PATTERN LIBRARY ({len(rows)}) ===")
         for p in rows:
-            print(f"  * {p['id']:32} [{p['category']}] engine={p['winning_engine']} | used_in={len(p.get('used_in') or [])}")
+            cfiles = p.get("code_files") or []
+            cbadge = f" | code:{len(cfiles)} files" if cfiles else ""
+            print(f"  * {p['id']:32} [{p['category']}] engine={p['winning_engine']} | used_in={len(p.get('used_in') or [])}{cbadge}")
             print(f"    {p.get('summary')}")
         return
 
@@ -148,7 +150,9 @@ def cmd_library(a, root):
         )
         print(f"=== PATTERN SEARCH ({len(rows)} match(es)) ===")
         for p in rows:
-            print(f"  * {p['id']:32} score={p['_score']} engine={p['winning_engine']} | target={p.get('target_skill') or '-'}")
+            cfiles = p.get("code_files") or []
+            cbadge = f" | code:{len(cfiles)} files" if cfiles else ""
+            print(f"  * {p['id']:32} score={p['_score']} engine={p['winning_engine']} | target={p.get('target_skill') or '-'}{cbadge}")
             print(f"    {p.get('summary')}")
         return
 
@@ -157,6 +161,40 @@ def cmd_library(a, root):
         if not pat:
             raise SystemExit(f"pattern not found: {a.pattern_id!r}")
         print(json.dumps(pat, indent=2))
+        return
+
+    if a.lib_cmd == "code":
+        pat = lab_library.get_pattern(a.pattern_id, lab_root=a.lab_dir)
+        if not pat:
+            raise SystemExit(f"pattern not found: {a.pattern_id!r}")
+        cdir_raw = pat.get("code_dir") or ""
+        if not cdir_raw:
+            raise SystemExit(f"pattern {pat['id']!r} has no saved code snapshot yet")
+        cdir = cdir_raw if os.path.isabs(cdir_raw) else os.path.join(C.lab_dir(a.lab_dir), cdir_raw)
+        struct = lab_library.analyze_code_structure(cdir)
+        print(f"=== PATTERN CODE: {pat['id']} ({pat.get('winning_engine')}) ===")
+        print(f"  code_dir   {cdir}")
+        print(f"  files      {', '.join(struct['files']) or '(none)'}")
+        print(f"  libraries  {', '.join(struct['libraries']) or '(none)'}")
+        print(f"  symbols    {', '.join(struct['symbols']) or '(none)'}")
+        print(f"  lines      {struct['total_lines']}")
+        return
+
+
+def cmd_kit(a, root):
+    kdir = lab_library.kit_dir(lab_root=a.lab_dir)
+    struct = lab_library.analyze_code_structure(kdir)
+    print(f"=== REVA SHARED CODE KIT ({kdir}) ===")
+    if not struct["files"]:
+        print("  (empty)")
+        return
+    for fname in struct["files"]:
+        fpath = os.path.join(kdir, fname)
+        fstruct = lab_library.analyze_code_structure(kdir)
+        lines = sum(1 for _ in open(fpath, encoding="utf-8", errors="replace"))
+        print(f"  * {fname:28} ({lines} lines)")
+    if struct["symbols"]:
+        print(f"  exported symbols: {', '.join(struct['symbols'][:18])}")
 
 
 def cmd_promote(a, root):
@@ -260,6 +298,10 @@ def build_parser():
     ls.add_argument("--engine")
     ls = lsub.add_parser("show", help="show full JSON for one pattern")
     ls.add_argument("pattern_id")
+    ls = lsub.add_parser("code", help="inspect saved source code structure, symbols, and libraries for a pattern")
+    ls.add_argument("pattern_id")
+
+    sub.add_parser("kit", help="list shared reusable CAD/diagram code primitives in lab/kit/")
 
     s = sub.add_parser("promote", help="promote a verified coding technique into lab/library.json")
     s.add_argument("study")
@@ -296,6 +338,7 @@ def main(argv=None):
         "harnesses": cmd_harnesses,
         "recommend": cmd_recommend,
         "library": cmd_library,
+        "kit": cmd_kit,
         "promote": cmd_promote,
         "promote-style": cmd_promote_style,
         "sync-app": cmd_sync_app,

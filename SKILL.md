@@ -5,7 +5,15 @@ description: "BRANCH 2 - REVA (Reverse Engineering Video Anything). Router skill
 
 # REVA: Engineering Lab & Reverse-Engineering Suite
 
-REVA pairs **one shared measurement engine** with an **Engineering Lab** (`lab/engines.json`, `lab/library.json`, `lab/harnesses/`) across **three specialized tools and skill guides**:
+REVA pairs **one shared Understanding Brain + Measurement Engine** with an **Engineering Lab** (`lab/engines.json`, `lab/library.json`, `lab/harnesses/`) across **three specialized tools and skill guides**:
+
+## The Fundamental 3-Phase Brain (Always Run in Order)
+
+Never jump straight to copying visuals or guessing what an animation/dish/concept is:
+
+1. **Transcribe First (`reva transcribe <study>`):** Extract speech from subtitles, auto-STT, or direct agent listening (`ref/audio.mp3` + `--from-file`/`--from-text`, or `--silent` for pure ASMR).
+2. **Learn & Research from the Internet (`reva research ...`):** Read `ref/transcript.txt` and `research/brief.md`. Run `reva research auto <study>` (1-command claims -> web search -> Wikimedia diagrams -> article fetch) or step through `claims` / `search` / `images --download` / `fetch <url>`, then lock **physical mechanism + verified specs + geometric anatomy + falsifiable `must_show` checks** (`reva research add-concept --mechanism ... --specs ... --anatomy ... --must-show ... --wrong ...`). `research complete` enforces real external URL/asset evidence.
+3. **Schematic/Clay Test Bench, 1-Command Run & Hard Visual Audit (`bench` -> `run-bench` -> `audit` -> `verify`):** Never waste time polishing rebar bumps, wood grain, concrete speckles, or grass inside a test bench. Build clean matte clay/CAD schematics focusing 100% on exact geometry, proportions, and causal explanation; run `reva-code run-bench <study> <technique>` to render stills + generate **both full and `--crop` zoomed comparisons** in one command; pass every `must_show` check (`reva-code audit`); then run `verify`.
 
 | If your goal is... | Load this Skill | Run this Tool | Output Target |
 |---|---|---|---|

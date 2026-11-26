@@ -12,20 +12,21 @@ Prompt-style cloning captures **art direction, story order, pacing, framing, and
 
 ---
 
-## 4-Step Style Cloning Loop
+## Style Cloning Loop (Understand Before Cloning)
 
-1. **Scrape, measure, scaffold & extract 8 golden beats in one command:**
+1. **Scrape, transcribe & initialize research + 8 golden beats:**
    ```cmd
-   python reva_style.py scrape my-study <url-or-file> --style my-style --beats 8
+   python reva_style.py scrape my-study <url-or-file> --style my-style --beats 8 [--transcribe]
    ```
-   Generates:
-   - `studies\my-study\dossier.md` + timestamped `ref\contact-sheet-*.jpg` + `ref\transcript.txt`
-   - `ref\measure.json`: exact `avg_shot_sec`, `shot_length_sec`, `cuts_per_min`, **still vs. moving ratio**, `max_static_sec`, WPM, `default_aspect`, and color palette
-   - `style\my-style\my-style.style.json` + `.md` pre-filled with every measured number
-   - `style\my-style\test\beats.json` + `ref\b1..b8.jpg` + `beats-preview.jpg` (8 beats across the timeline with aligned spoken narration)
+   - If subtitles weren't embedded, run `python reva.py transcribe my-study` (or listen to `ref\audio.mp3` & import via `--from-file`, or pass `--silent` for genuine ASMR) and then refresh beats:
+     `python reva_style.py beats my-study my-style --auto`
+   - Generates `dossier.md`, `research\brief.md`, `ref\transcript.txt`, `ref\measure.json`, `style\my-style\my-style.style.json`, and `beats-preview.jpg`.
 
-2. **Inspect contact sheets & author the promptable style rules:**
-   Read `dossier.md`, `ref\contact-sheet-*.jpg`, and `style\my-style\test\beats-preview.jpg`. Replace every `<TODO:...>` in `my-style.style.json`:
+2. **Learn & Research from the Internet (`reva research`):**
+   Extract claims (`reva research claims my-study`), search external articles/specs & Wikimedia diagrams (`search_web`, `reva research search`, `reva research images --download`, `reva research fetch <url>`), and record physical mechanism, verified specs, and visual anatomy (`reva research add-concept --mechanism ... --specs ... --anatomy ... --must-show ... --wrong ...` / `complete`, which requires real URL/asset evidence) before writing `picture_rules` or `scene_cards`.
+
+3. **Inspect contact sheets & author promptable style rules:**
+   Replace every `<TODO:...>` in `my-style.style.json` grounded in the real subject understanding:
    - `look.art_style`, `character`, `background`, `lighting`: clear painting/model directions any prompt can follow (zero reference-specific character names or copyrighted titles).
    - `look.picture_rules`: **5–8 rules a stranger could draw from** (ideas per frame, subject scale, camera height, background simplicity, recurring symbols, text placement, panel/split/grid layouts).
    - `look.framing`: `"flat"` (comic panels / 2D diagrams, front view), `"film"` (real camera shots: wide, close, macro), or `"fixed-tabletop"` (locked macro overhead/slate perspective for ASMR process styles).
@@ -35,15 +36,15 @@ Prompt-style cloning captures **art direction, story order, pacing, framing, and
    - Optionally re-pick specific signature frames for golden beats:
      `python reva_style.py beats my-study my-style --at 2,14,35,60,...`
 
-3. **Dry-run check & deliver to `Automated-Lunch-Free`:**
+4. **Dry-run check & deliver to `Automated-Lunch-Free`:**
    ```cmd
-   python reva_style.py check my-study
+   python reva_style.py check my-study [--strict-research]
    python reva_style.py deliver my-study --promote --tags "explainer,2d"
    ```
-   - `check` verifies no UTF-8 BOM, zero leftover `<...>` placeholders, and runs `Automated-Lunch-Free\scripts\style-check.js` locally without copying anything yet.
+   - `check` verifies no UTF-8 BOM, zero leftover `<...>` placeholders, checks transcript + `research/brief.json` status (`--strict-research` enforces both), and runs `Automated-Lunch-Free\scripts\style-check.js` locally without copying anything yet.
    - `deliver` copies `style\<id>\` into `<app>\styles\<id>\` and runs `style-check.js <id>`. Passing `--promote` (or running `reva-lab promote-style my-study`) indexes the style into `lab/library.json` for reuse on future channel studies. Fix every `ERROR` and review `WARNING`s.
 
-4. **Prove visually (`style-test` + 45s test render):**
+5. **Prove visually (`style-test` + 45s test render):**
    ```cmd
    cd "<Automated-Lunch-Free>"
    npm.cmd run style-test -- --style my-style --preset cinematic-story

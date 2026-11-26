@@ -164,42 +164,107 @@ def _scale_to_width(im, target_w):
     return im.resize((target_w, new_h), Image.Resampling.LANCZOS)
 
 
+def _parse_crop_box(raw_crop):
+    if not raw_crop:
+        return None
+    parts = [float(x.strip()) for x in str(raw_crop).split(",") if x.strip()]
+    if len(parts) != 4:
+        raise SystemExit(f"--crop must be 4 comma-separated 0..1 floats: x,y,w,h (got {raw_crop!r})")
+    x, y, w, h = parts
+    if w <= 0 or h <= 0 or x < 0 or y < 0 or x + w > 1.001 or y + h > 1.001:
+        raise SystemExit(f"--crop x,y,w,h out of bounds 0..1: {raw_crop!r}")
+    return x, y, w, h
+
+
+def _apply_crop(im, crop_box):
+    if not crop_box:
+        return im
+    W, H = im.size
+    x, y, w, h = crop_box
+    x0 = max(0, min(W - 2, int(round(W * x))))
+    y0 = max(0, min(H - 2, int(round(H * y))))
+    x1 = max(x0 + 2, min(W, int(round(W * (x + w)))))
+    y1 = max(y0 + 2, min(H, int(round(H * (y + h)))))
+    return im.crop((x0, y0, x1, y1))
+
+
+def is_image_list(raw):
+    items = [x.strip() for x in str(raw or "").split(",") if x.strip()]
+    if not items:
+        return False
+    return all(x.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) for x in items)
+
+
 def compare(a):
     from PIL import Image, ImageDraw
 
     os.makedirs(a.out, exist_ok=True)
     refs = [x.strip() for x in a.ref.split(",") if x.strip()]
-    mine_times = [C.norm_ts(x) for x in a.mine_at.split(",") if x.strip()]
-    if len(mine_times) != len(refs):
-        raise SystemExit(f"give as many --mine-at times ({len(mine_times)}) as --ref stills ({len(refs)})")
+    crop_box = _parse_crop_box(getattr(a, "crop", None))
+    direct_imgs = is_image_list(a.mine)
 
-    mine_imgs = []
-    try:
+    temp_imgs = []
+    if direct_imgs:
+        mine_imgs = [os.path.abspath(x.strip()) for x in a.mine.split(",") if x.strip()]
+        if len(mine_imgs) != len(refs):
+            raise SystemExit(f"give as many --mine images ({len(mine_imgs)}) as --ref stills ({len(refs)})")
+        for mp in mine_imgs:
+            if not os.path.exists(mp):
+                raise SystemExit(f"mine image not found: {mp}")
+        if getattr(a, "mine_at", ""):
+            mine_labels = [C.norm_ts(x) + "s" for x in a.mine_at.split(",") if x.strip()]
+            if len(mine_labels) != len(mine_imgs):
+                mine_labels = [os.path.basename(mp) for mp in mine_imgs]
+        else:
+            mine_labels = [os.path.basename(mp) for mp in mine_imgs]
+    else:
+        if not getattr(a, "mine_at", ""):
+            raise SystemExit("--mine-at is required when --mine is a video file")
+        mine_times = [C.norm_ts(x) for x in a.mine_at.split(",") if x.strip()]
+        if len(mine_times) != len(refs):
+            raise SystemExit(f"give as many --mine-at times ({len(mine_times)}) as --ref stills ({len(refs)})")
+        mine_imgs = []
+        mine_labels = [f"@{t}s" for t in mine_times]
         for i, t in enumerate(mine_times):
             p = os.path.join(a.out, f"_mine_{i}.png")
             ff(["-ss", t, "-i", a.mine, "-frames:v", "1", p])
             mine_imgs.append(p)
+            temp_imgs.append(p)
 
+    try:
         col_w = 960
         hdr_h = 34
         gap = 8
         font = C.load_font(16, bold=True)
         row_imgs = []
 
-        for r_path, m_path, mt in zip(refs, mine_imgs, mine_times):
+        schematic = getattr(a, "schematic", None)
+        if schematic:
+            if not os.path.exists(schematic):
+                raise SystemExit(f"schematic image not found: {schematic}")
+            with Image.open(schematic) as sim:
+                s_scaled = _scale_to_width(sim.convert("RGB"), col_w * 2 + gap)
+            ban = Image.new("RGB", (col_w * 2 + gap, hdr_h + s_scaled.height), (20, 20, 20))
+            bdraw = ImageDraw.Draw(ban)
+            C.draw_badge(bdraw, (8, 5), f"SCHEMATIC  {os.path.basename(schematic)}", font, bg=(22, 110, 175), fg=(255, 255, 255))
+            ban.paste(s_scaled, (0, hdr_h))
+            row_imgs.append(ban)
+
+        zoom_tag = " [ZOOM]" if crop_box else ""
+        for r_path, m_path, mlbl in zip(refs, mine_imgs, mine_labels):
             if not os.path.exists(r_path):
                 raise SystemExit(f"reference still not found: {r_path}")
             with Image.open(r_path) as rim:
-                r_scaled = _scale_to_width(rim.convert("RGB"), col_w)
+                r_scaled = _scale_to_width(_apply_crop(rim.convert("RGB"), crop_box), col_w)
             with Image.open(m_path) as mim:
-                m_scaled = _scale_to_width(mim.convert("RGB"), col_w)
+                m_scaled = _scale_to_width(_apply_crop(mim.convert("RGB"), crop_box), col_w)
 
             body_h = max(r_scaled.height, m_scaled.height)
             row_w = col_w * 2 + gap
             row_canvas = Image.new("RGB", (row_w, hdr_h + body_h), (20, 20, 20))
             draw = ImageDraw.Draw(row_canvas)
-            C.draw_badge(draw, (8, 5), f"REF  {os.path.basename(r_path)}", font, bg=(36, 36, 36), fg=(240, 240, 240))
-            lbl = f"MINE [{a.label}]  @{mt}s" if getattr(a, "label", None) else f"MINE  @{mt}s"
+            C.draw_badge(draw, (8, 5), f"REF  {os.path.basename(r_path)}{zoom_tag}", font, bg=(36, 36, 36), fg=(240, 240, 240))
+            lbl = f"MINE [{a.label}]  {mlbl}{zoom_tag}" if getattr(a, "label", None) else f"MINE  {mlbl}{zoom_tag}"
             C.draw_badge(draw, (col_w + gap + 8, 5), lbl, font, bg=(139, 26, 43), fg=(255, 255, 255))
 
             r_y = hdr_h + (body_h - r_scaled.height) // 2
@@ -221,7 +286,7 @@ def compare(a):
         print("reference LEFT, yours RIGHT ->", dst)
         return dst
     finally:
-        for m in mine_imgs:
+        for m in temp_imgs:
             if os.path.exists(m):
                 os.remove(m)
 
@@ -252,7 +317,9 @@ def main():
     p = sub.add_parser("compare")
     p.add_argument("--ref", required=True)
     p.add_argument("--mine", required=True)
-    p.add_argument("--mine-at", required=True)
+    p.add_argument("--mine-at", default="")
+    p.add_argument("--crop", help="normalized zoom crop x,y,w,h (0..1) applied to both REF and MINE")
+    p.add_argument("--schematic", help="optional reference diagram image to show across top")
     p.add_argument("--out", required=True)
     p.add_argument("--out-name", default="compare.jpg")
     p.add_argument("--label")

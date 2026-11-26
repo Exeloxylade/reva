@@ -686,6 +686,73 @@
         "alf:weird-protocol"
       ],
       "updated_at": "2026-11-26"
+    },
+    {
+      "id": "sni-stirrup-135-cutaway",
+      "category": "3d-explainer",
+      "tags": [
+        "sni-2847",
+        "stirrup",
+        "rebar",
+        "cutaway",
+        "clay-schematic",
+        "revacad",
+        "3d-explainer",
+        "bending-jig-135",
+        "bending",
+        "jig",
+        "135",
+        "sni-stirrup-135-cutaway",
+        "sni",
+        "threejs-webgl",
+        "structured-code"
+      ],
+      "winning_engine": "threejs-webgl",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "",
+      "template": "patterns/sni-stirrup-135-cutaway",
+      "summary": "Verified bending-jig-135 technique from beton-fb-test using threejs-webgl (4/4 SNI 2847 Clay/CAD checkpoints verified with RevaCAD kit)",
+      "code_dir": "patterns/sni-stirrup-135-cutaway",
+      "code_files": [
+        "README.md",
+        "bench_scene.html",
+        "render_bench.py",
+        "scene.html"
+      ],
+      "code_symbols": [
+        "def find_browser()",
+        "def main(argv)"
+      ],
+      "code_libraries": [
+        "three.min.js",
+        "threejs_schematic.js",
+        "RevaCAD",
+        "three.js",
+        "argparse",
+        "json",
+        "os",
+        "shutil",
+        "subprocess",
+        "tempfile"
+      ],
+      "baseline": {
+        "window_sec": "16.0-36.0",
+        "aspect_ratio": "9:16",
+        "fps": 30.0,
+        "wpm": 130,
+        "palette": [
+          "#c8c8c2",
+          "#9fcc70",
+          "#b7b9b6",
+          "#d6dfdf"
+        ],
+        "verify_note": "4/4 SNI 2847 Clay/CAD checkpoints verified with RevaCAD kit"
+      },
+      "used_in": [
+        "beton-fb-test"
+      ],
+      "updated_at": "2026-11-26"
     }
   ]
 }

@@ -10,19 +10,35 @@ An **Engineering Lab** and video reverse-engineering toolkit for Kiro Crew, Code
 
 `reva.py` / `reva.cmd` remains available as a thin unified router (`reva lab ...`, `reva code ...`, `reva style ...`, or direct top-level subcommands).
 
-## The 3 Fundamental Goals of REVA
+## The Fundamental 3-Phase Brain + Lab Goals
 
-1. **Stack & Capability Proof:** Probe every code-callable engine available on the machine (HyperFrames, Three.js, D3, FFmpeg, `Automated-Lunch-Free` CLI, Blender, Manim, Remotion, plus newly registered tools) and run side-by-side test-bench bake-offs to prove which stack achieves reference fidelity.
-2. **Explanatory & Dynamic Grammar:** Deconstruct *why* the camera moves and how scenes/apparatus are staged so explanations stay dynamic, accurate, and engaging.
-3. **Compounding Reusable Skills:** Every verified technique or style is promoted into [`lab/library.json`](lab/library.json) and Branch 1 (`video-making-skills`) so Video 2 reuses Video 1's proven patterns (e.g. animated maps, charts, 3D rigs) instead of starting from scratch.
+1. **Transcribe First (`reva transcribe`):** Every spoken video gets a real timestamped transcript (`ref/transcript.{json,txt}`) via embedded captions, optional local/cloud STT, or compact `ref/audio.mp3` listening + import (unless explicitly marked `--silent`).
+2. **Learn & Research from the Internet (`reva research`):** Extract transcript claims (`reva research claims`), search external articles/specs & Wikimedia diagrams (`search_web`, `reva research search`, `reva research images --download`), fetch real reference pages into `research/assets/` (`reva research fetch <url>`), and record **physical mechanism + verified specs + geometric anatomy + falsifiable `must_show` checks** (`--mechanism`, `--specs`, `--anatomy`, `--must-show`, `--wrong`). `research complete` blocks without verified URL/asset evidence.
+3. **Schematic/Clay-First Test Bench, Zoomed Compare & Hard Audit Gate:** Build clean clay/CAD schematics with zero texture waste, compare full + `--crop` zoomed views, and pass every `checklist.json` visual item (`reva-code audit`) before `verify` or full-film assembly.
 
 ## Quick Commands
+
+### Step 1 & 2: Fundamental Brain (`transcribe` & `research`)
+```cmd
+python reva.py transcribe my-study [--from-file subs.srt | --silent]
+python reva.py research init my-study
+python reva.py research auto my-study
+python reva.py research claims my-study
+python reva.py research search my-study "query terms"
+python reva.py research images my-study "stirrup rebar concrete" --download 1
+python reva.py research fetch my-study "https://..." --query "seismic hook 135 confinement"
+python reva.py research add-concept my-study --term "..." --meaning "..." --mechanism "..." --specs "..." --anatomy "..." --must-show "..." --wrong "..." --at 16.5
+python reva.py research add-source my-study --title "..." --kind standard --url "https://..." --takeaway "..."
+python reva.py research complete my-study --what "..." --domain "..." --implication "..."
+python reva.py audit my-study <technique> --show
+```
 
 ### Engineering Lab (`reva-lab`)
 ```cmd
 python reva_lab.py engines
-python reva_lab.py sync-app
-python reva_lab.py library search "animated map"
+python reva_lab.py kit
+python reva_lab.py library search "stirrup"
+python reva_lab.py library code sni-stirrup-135-cutaway
 python reva_lab.py recommend my-study --tags "animated-map,route"
 python reva_lab.py register my-engine --name "My Engine" --kind code-3d --strengths "pbr-3d,physics" --bin my-engine
 ```
@@ -33,8 +49,8 @@ python reva_code.py doctor
 python reva_code.py scrape my-study <url-or-file>
 python reva_code.py add my-study route-map --from 35 --to 59 --grid
 python reva_code.py reuse my-study route-map --pattern animated-route-map
-python reva_code.py bench my-study route-map --tool hyperframes-2d
-python reva_code.py compare my-study route-map --tool hyperframes-2d --mine bench\hyperframes-2d\out.mp4 --mine-at 12,24 --ref-at 44,56
+python reva_code.py bench my-study route-map --tool threejs-webgl
+python reva_code.py run-bench my-study route-map --tool threejs-webgl --at 0,1,2 --ref-at 44,56,60
 python reva_code.py verdict my-study route-map --winner hyperframes-2d --rejected "ffmpeg-compositor:static labels"
 python reva_code.py verify my-study route-map --tool hyperframes-2d --promote --category animated-map
 python reva_code.py skill my-study
@@ -62,6 +78,8 @@ python reva_style.py deliver my-study --promote
 | [`lab/library.json`](lab/library.json) | Cross-study Reusable Pattern Library seeded with proven patterns |
 | [`lab/harnesses/`](lab/harnesses) | Minimal starter test-bench harnesses (`ffmpeg-probe`, `hyperframes-2d`, `threejs-webgl`, `blender-bpy`, `automated-lunch-free`) |
 | [`scripts/_common.py`](scripts/_common.py) | FFmpeg/ffprobe lookup, workspace/lab/Branch-1 discovery, cut detection, rolling VTT/SRT parser, Pillow palette & badges |
+| [`scripts/transcribe.py`](scripts/transcribe.py) | Step 1 Brain: `ref/audio.mp3` extraction, `.srt`/`.vtt`/`.json`/`.txt` import, optional STT backends (`faster-whisper`, `whisper`, `gemini`, `groq`, `openai`) |
+| [`scripts/research.py`](scripts/research.py) | Step 2 Brain: transcript claim extraction, multi-provider web search (`Wikipedia`/`OpenAlex`/`DDG`), Wikimedia image lookup, `fetch` page cache, `mechanism`/`specs`/visual-anatomy logging & evidence gate (`research/brief.{json,md}`) |
 | [`scripts/lab_engine.py`](scripts/lab_engine.py) | Engine probing, custom engine registration, test-bench setup, and capability recommendations |
 | [`scripts/lab_library.py`](scripts/lab_library.py) | Pattern search, cross-video reuse linking, and technique/style promotion |
 | [`scripts/study_ops.py`](scripts/study_ops.py) | Shared study orchestration (`doctor`, `start`, `measure`, whole-video `colors`, dossier refresh) |

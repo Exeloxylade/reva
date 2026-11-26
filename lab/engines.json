@@ -180,7 +180,11 @@
       "callable_via": "blender -b -P render.py",
       "probes": {
         "bin": ["blender", "blender.exe"],
-        "win_globs": ["C:\\Program Files\\Blender Foundation\\Blender*\\blender.exe"]
+        "win_globs": [
+          "C:\\Program Files\\Blender Foundation\\Blender*\\blender.exe",
+          "%LOCALAPPDATA%\\Programs\\Blender*\\blender.exe",
+          "%LOCALAPPDATA%\\Programs\\Blender*\\*\\blender.exe"
+        ]
       },
       "strengths": [
         "pbr-3d",
@@ -203,7 +207,12 @@
       "kind": "code-math",
       "callable_via": "manim -qh scene.py <SceneClass>",
       "probes": {
-        "bin": ["manim"],
+        "bin": ["manim", "manim.exe"],
+        "win_globs": [
+          "C:\\Users\\*\\AppData\\Roaming\\Python\\Python*\\Scripts\\manim.exe",
+          "%APPDATA%\\Python\\Python*\\Scripts\\manim.exe",
+          "C:\\Python*\\Scripts\\manim.exe"
+        ],
         "python_module": "manim"
       },
       "strengths": [
@@ -217,6 +226,7 @@
       "limitations": [
         "Specialized for math/geometry; less suited for photo b-roll or UI cards"
       ],
+      "harness": "lab/harnesses/manim",
       "install_hint": "pip install manim"
     },
     {
@@ -238,6 +248,7 @@
       "limitations": [
         "Requires Node/React project scaffolding"
       ],
+      "harness": "lab/harnesses/remotion",
       "install_hint": "npx create-video@latest"
     }
   ]

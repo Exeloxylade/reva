@@ -265,6 +265,17 @@ def pick_subtitle_file(ref_dir, name="ref"):
     """Select best matching subtitle file (.vtt or .srt) in ref_dir."""
     if not os.path.isdir(ref_dir):
         return None
+    tr_json = os.path.join(ref_dir, "transcript.json")
+    if os.path.exists(tr_json):
+        try:
+            with open(tr_json, encoding="utf-8-sig") as fp:
+                sub_name = json.load(fp).get("subtitle_file")
+            if sub_name:
+                cand = os.path.join(ref_dir, sub_name)
+                if os.path.exists(cand):
+                    return cand
+        except Exception:
+            pass
     files = sorted(
         os.path.join(ref_dir, f)
         for f in os.listdir(ref_dir)

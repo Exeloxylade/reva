@@ -20,8 +20,17 @@ if S not in sys.path:
 
 import _common as C
 import lab_library
+import research
 import study_ops as O
 import style_kit
+
+
+def cmd_transcribe(a, root):
+    O.run_transcribe(root, a.study, a, focus="style")
+
+
+def cmd_research(a, root):
+    O.run_research(root, a.study, a, focus="style")
 
 
 def _resolve_style_id(root, study, explicit=None):
@@ -78,6 +87,16 @@ def cmd_scaffold(a, root):
 
 def cmd_scrape(a, root):
     O.run_start(root, a.study, a.source, sps=a.sps, focus="style")
+    if getattr(a, "transcribe", False):
+        O.run_transcribe(
+            root,
+            a.study,
+            argparse.Namespace(
+                study=a.study, backend="auto", lang=getattr(a, "lang", None), model=None,
+                from_file=None, from_text=None, force=False, silent=False, status=False, strict=False,
+            ),
+            focus="style",
+        )
     O.run_measure(root, a.study, focus="style")
     sid = a.style or a.study
     app = C.find_app(a.app)
@@ -88,22 +107,35 @@ def cmd_scrape(a, root):
     bjson, bprev, beats = style_kit.build_beats(
         O.sdir(root, a.study), sid, O.ref_video(root, a.study), auto=True, count=a.beats,
     )
-    dossier = O.refresh_dossier(root, a.study, focus="style")
+    st = O.load_study(root, a.study)
+    dossier = O.refresh_dossier(root, a.study, st, focus="style")
     print(f"\n=== STYLE SCRAPE COMPLETE ({a.study} -> {sid}) ===")
     print(f"  dossier  -> {dossier}")
     print(f"  sheets   -> {O.sdir(root, a.study, 'ref')}\\contact-sheet-*.jpg")
+    print(f"  research -> {research.brief_md_path(O.sdir(root, a.study))}")
     print(f"  style    -> {jpath}")
     print(f"  twin md  -> {mpath}")
     print(f"  beats    -> {bjson} ({len(beats)} beats)")
     print(f"  preview  -> {bprev}")
+    if st.get("transcript_status") in ("needed", None):
+        print(f"  ACTION (Step 1 - Transcribe): python reva.py transcribe {a.study}   (then re-run 'reva-style beats {a.study} {sid} --auto')")
+    if (st.get("research") or {}).get("status") != "researched":
+        print(f"  ACTION (Step 2 - Learn):      inspect research/brief.md & complete subject research before cloning style")
     print(f"  next     -> inspect dossier + contact sheets + beats-preview.jpg, replace <TODO:...> in {os.path.basename(jpath)}, then: reva-style check {a.study}")
 
 
 def cmd_check(a, root):
-    O.load_study(root, a.study)
+    st = O.load_study(root, a.study)
     style_file = style_kit.resolve_style_file(O.sdir(root, a.study), a.style)
     app = C.find_app(a.app)
     res = style_kit.check_style_local(style_file, app_dir=app)
+
+    sdir = O.sdir(root, a.study)
+    t_stat = st.get("transcript_status") or ("subtitles" if os.path.exists(os.path.join(sdir, "ref", "transcript.json")) else "unknown")
+    r_sum = research.research_summary(sdir)
+    r_stat = r_sum.get("status") if r_sum else "missing"
+    t_ok = t_stat in ("subtitles", "transcribed", "silent", "no-audio")
+    r_ok = r_stat == "researched"
 
     print(f"=== STYLE CHECK ({res['style_id']}) ===")
     print(f"  file         {res['style_file']}")
@@ -111,6 +143,8 @@ def cmd_check(a, root):
     print(f"  placeholders {len(res['placeholders'])}" + (" (OK)" if not res["placeholders"] else " (unresolved):"))
     for p, v in res["placeholders"][:10]:
         print(f"    - {p}: {v}")
+    print(f"  transcript   {'OK   ' if t_ok else 'WARN '} ({t_stat})")
+    print(f"  research     {'OK   ' if r_ok else 'WARN '} ({r_stat})")
     if res["style_check_ran"]:
         print(f"  app check    {'OK' if res['style_check_ok'] else 'FAIL'} ({app})")
         if res["style_check_output"]:
@@ -119,7 +153,8 @@ def cmd_check(a, root):
     else:
         print("  app check    WARN  Automated-Lunch-Free or node not available (skipped JS schema check)")
 
-    if res["bom"] or res["placeholders"] or (res["style_check_ran"] and not res["style_check_ok"]):
+    strict_fail = getattr(a, "strict_research", False) and (not t_ok or not r_ok)
+    if res["bom"] or res["placeholders"] or (res["style_check_ran"] and not res["style_check_ok"]) or strict_fail:
         raise SystemExit("style check failed: fix the items above, then run reva-style check again")
     print(f"  next         reva-style deliver {a.study}")
 
@@ -201,6 +236,10 @@ def cmd_status(a, root):
             extra.append(f"{cuts.get('per_min')}/min med {cuts.get('median_sec')}s")
         if motion.get("samples"):
             extra.append(f"{round(motion.get('still_share', 0) * 100)}% still")
+        if st.get("transcript_status"):
+            extra.append(f"script:{st['transcript_status']}")
+        if (st.get("research") or {}).get("status"):
+            extra.append(f"research:{st['research']['status']}")
         print(f"{s}: {st.get('title') or st['source']}  ({st.get('duration')}s, {st.get('wpm')} wpm | {', '.join(extra)})")
 
         styles = sorted(glob.glob(O.sdir(root, s, "style", "*", "*.style.json")))
@@ -227,7 +266,7 @@ def build_parser():
 
     sub.add_parser("doctor", help="check tools, node, workspace, and Automated-Lunch-Free")
 
-    s = sub.add_parser("scrape", help="1-command style scrape: teardown + measure + dossier + scaffold + 8 golden beats")
+    s = sub.add_parser("scrape", help="1-command style scrape: teardown + optional transcribe + measure + dossier + scaffold + 8 golden beats")
     s.add_argument("study")
     s.add_argument("source")
     s.add_argument("--style", help="style id (defaults to <study>)")
@@ -236,7 +275,11 @@ def build_parser():
     s.add_argument("--silent-asmr", action="store_true", help="scaffold silent ASMR Foley style (voice:off, graphics:false)")
     s.add_argument("--domain", help="optional domain tag for silent-process-asmr (e.g. culinary, automotive-restoration)")
     s.add_argument("--sps", default="auto")
+    s.add_argument("--transcribe", action="store_true", help="transcribe spoken audio before building beats")
+    s.add_argument("--lang", help="optional language hint for --transcribe")
     s.add_argument("--app")
+
+    O.add_brain_subparsers(sub)
 
     s = sub.add_parser("measure", help="re-measure cuts, still vs moving ratio, WPM, and palette")
     s.add_argument("study")
@@ -269,6 +312,7 @@ def build_parser():
     s.add_argument("study")
     s.add_argument("--style")
     s.add_argument("--app")
+    s.add_argument("--strict-research", action="store_true", help="fail check if transcript is missing or research brief is still draft")
 
     s = sub.add_parser("deliver", help="validate & copy style/<id>/ into Automated-Lunch-Free and run style-check")
     s.add_argument("study")
@@ -291,6 +335,8 @@ def main(argv=None):
     handlers = {
         "doctor": cmd_doctor,
         "scrape": cmd_scrape,
+        "transcribe": cmd_transcribe,
+        "research": cmd_research,
         "measure": cmd_measure,
         "colors": cmd_colors,
         "beats": cmd_beats,

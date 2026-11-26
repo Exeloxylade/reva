@@ -15,8 +15,10 @@ import sys
 
 try:
     from . import _common as C
+    from . import transcribe
 except ImportError:
     import _common as C
+    import transcribe
 
 
 def is_url(s):
@@ -257,6 +259,13 @@ def main():
     sheets = contact_sheets(frames, a.out, sps, a.sheet_cols, a.sheet_rows)
     print("  reading subtitles ...")
     subs = read_subs(a.out, a.name, meta["duration"])
+    if not subs["has_script"] and meta["has_audio"]:
+        try:
+            audio_mp3 = transcribe.extract_audio(mp4, a.out)
+            if audio_mp3:
+                subs["audio_file"] = os.path.basename(audio_mp3)
+        except Exception as exc:
+            print(f"  audio extract warning: {exc}")
     print("  measuring sound ...")
     sound = measure_sound(mp4, meta["has_audio"])
 
@@ -265,6 +274,8 @@ def main():
         "source": a.input,
         "title": info.get("title"),
         "uploader": info.get("uploader"),
+        "description": (info.get("description") or "")[:2000],
+        "tags": list(info.get("tags") or [])[:30],
         "video": meta,
         "sps": sps,
         "shots": {
@@ -291,7 +302,12 @@ def main():
         print(f"  title    {report['title']}  ({report['uploader']})")
     print(f"  video    {report['aspect']}  {meta['fps']} fps  {meta['duration']}s  audio {meta['audio_channels']}ch")
     print(f"  shots    {len(shots)}  (avg {report['shots']['avg_len']}s, {report['shots']['min_len']}-{report['shots']['max_len']}s)")
-    print(f"  script   {subs['words']} words  {subs['wpm']} wpm" + (f" ({subs['subtitle_file']})" if subs["has_script"] else "  (NO subtitles found)"))
+    if subs["has_script"]:
+        print(f"  script   {subs['words']} words  {subs['wpm']} wpm ({subs['subtitle_file']})")
+    elif subs.get("audio_file"):
+        print(f"  script   0 words  (NO subtitles — extracted ref/{subs['audio_file']}; run 'reva transcribe <study>')")
+    else:
+        print("  script   0 words  (NO subtitles found)")
     if sound["lufs"] is not None:
         print(f"  sound    {sound['lufs']} LUFS  peak {sound['true_peak']} dBTP  (mean {sound['mean_db']} dB)")
     else:

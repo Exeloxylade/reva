@@ -536,6 +536,508 @@ class TestRevaSplitTools(unittest.TestCase):
         s_tab = run_cli(REVA_LAB_PY, self.ws, "library", "search", "fixed-tabletop", lab_dir=self.lab_dir)
         self.assertIn("prompt-style-asmr-cook", s_tab.stdout)
 
+    def test_10_transcribe_and_research_brain_e2e(self):
+        # 1. Scraping video with audio + no subs auto-extracts ref/audio.mp3 and seeds research/brief.{json,md}.
+        run_cli(REVA_PY, self.ws, "code", "scrape", "brain-short", self.short_mp4, lab_dir=self.lab_dir)
+        sdir = os.path.join(self.ws, "brain-short")
+        self.assertTrue(os.path.exists(os.path.join(sdir, "ref", "audio.mp3")))
+        self.assertTrue(os.path.exists(os.path.join(sdir, "research", "brief.json")))
+        self.assertTrue(os.path.exists(os.path.join(sdir, "research", "brief.md")))
+
+        with open(os.path.join(sdir, "study.json"), encoding="utf-8") as fp:
+            st0 = json.load(fp)
+        self.assertEqual(st0["transcript_status"], "needed")
+        self.assertEqual(st0["research"]["status"], "draft")
+
+        # 2. --from-file works with Whisper/timing.json segments schema AND updates measure/dossier/beats.
+        seg_json = os.path.join(self.tmp.name, "timing_segments.json")
+        with open(seg_json, "w", encoding="utf-8") as fp:
+            json.dump({
+                "segments": [
+                    {"start": 0.2, "end": 2.3, "text": "Reinforced concrete hooks need 135 degree bends per SNI 2847."},
+                    {"start": 2.6, "end": 4.8, "text": "Minimum 4 cm indoor concrete cover prevents rebar corrosion."},
+                ]
+            }, fp)
+        run_cli(REVA_PY, self.ws, "transcribe", "brain-short", "--from-file", seg_json, "--lang", "en", lab_dir=self.lab_dir)
+        self.assertTrue(os.path.exists(os.path.join(sdir, "ref", "transcript.json")))
+        self.assertTrue(os.path.exists(os.path.join(sdir, "ref", "transcript.txt")))
+        self.assertTrue(os.path.exists(os.path.join(sdir, "ref", "script.txt")))
+        self.assertTrue(os.path.exists(os.path.join(sdir, "ref", "ref.transcribed.srt")))
+
+        run_cli(REVA_STYLE_PY, self.ws, "scaffold", "brain-short", lab_dir=self.lab_dir)
+        run_cli(REVA_STYLE_PY, self.ws, "beats", "brain-short", "--auto", "--count", "2", lab_dir=self.lab_dir)
+        with open(os.path.join(sdir, "style", "brain-short", "test", "beats.json"), encoding="utf-8") as fp:
+            beats = json.load(fp)
+        self.assertNotIn("no subtitles", beats[0]["narration"])
+        self.assertIn("Reinforced concrete hooks", beats[0]["narration"])
+
+        # Re-importing from .srt via --force also works cleanly.
+        srt_path = os.path.join(self.tmp.name, "reimport.srt")
+        with open(srt_path, "w", encoding="utf-8") as fp:
+            fp.write(
+                "1\n00:00:00,200 --> 00:00:02,400\nStirrup hook 135 degrees per SNI 2847.\n\n"
+                "2\n00:00:02,600 --> 00:00:04,900\nConcrete cover stays 4 cm indoors.\n"
+            )
+        run_cli(REVA_PY, self.ws, "transcribe", "brain-short", "--from-file", srt_path, "--lang", "en", "--force", lab_dir=self.lab_dir)
+
+        # Strict research check fails while research is still draft.
+        sf = os.path.join(sdir, "style", "brain-short", "brain-short.style.json")
+        with open(sf, encoding="utf-8") as fp:
+            sdata = _fill_placeholders(json.load(fp))
+        with open(sf, "w", encoding="utf-8") as fp:
+            json.dump(sdata, fp, indent=2)
+        strict_bad = run_cli(REVA_STYLE_PY, self.ws, "check", "brain-short", "--strict-research", lab_dir=self.lab_dir, check=False)
+        self.assertNotEqual(strict_bad.returncode, 0)
+
+        # 3. Silent mode works cleanly on ASMR/silent clips.
+        run_cli(REVA_PY, self.ws, "code", "scrape", "brain-silent", self.short_mp4, lab_dir=self.lab_dir)
+        run_cli(REVA_PY, self.ws, "transcribe", "brain-silent", "--silent", lab_dir=self.lab_dir)
+        with open(os.path.join(self.ws, "brain-silent", "study.json"), encoding="utf-8") as fp:
+            self.assertEqual(json.load(fp)["transcript_status"], "silent")
+
+        # 4. Research complete refuses empty brief unless concepts/sources exist.
+        empty_comp = run_cli(
+            REVA_PY, self.ws, "research", "complete", "brain-short",
+            "--what", "Concrete stirrup rules", "--domain", "civil-engineering",
+            lab_dir=self.lab_dir, check=False,
+        )
+        self.assertNotEqual(empty_comp.returncode, 0)
+
+        # Add concept, local source asset, visual item, and complete brief.
+        ref_note_file = os.path.join(self.tmp.name, "sni2847-notes.txt")
+        with open(ref_note_file, "w", encoding="utf-8") as fp:
+            fp.write("SNI 2847 135-degree seismic hook >= 6d and >= 75mm.\n")
+
+        run_cli(
+            REVA_PY, self.ws, "research", "add-concept", "brain-short",
+            "--term", "3d-explainer cutaway",
+            "--meaning", "135-degree seismic hoop confinement inside concrete core",
+            "--visual", "Bent bar around corner longitudinal rebar with angle arc",
+            "--at", "0.5,1.8",
+            lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_PY, self.ws, "research", "add-source", "brain-short",
+            "--title", "SNI 2847 Stirrup Hook Provision",
+            "--kind", "standard",
+            "--url", "https://example.org/sni-2847",
+            "--takeaway", "135 deg hook prevents stirrup opening under lateral seismic spalling",
+            "--asset", ref_note_file,
+            lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_PY, self.ws, "research", "add-visual", "brain-short",
+            "--item", "Corner rebar stirrup bend",
+            "--why", "Must show inner bend diameter + 6d leg extension",
+            "--needs-ref",
+            lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_PY, self.ws, "research", "complete", "brain-short",
+            "--what", "Reinforced concrete seismic stirrup hook and cover explainer",
+            "--domain", "civil-engineering",
+            "--thesis", "Concrete failure happens when confinement hooks open at 90 degrees or cover is too thin",
+            "--implication", "Use 3D structural cutaway showing concrete spalling and 135-degree hook angle gauge",
+            lab_dir=self.lab_dir,
+        )
+        self.assertTrue(os.path.exists(os.path.join(sdir, "research", "assets", "sni2847-notes.txt")))
+
+        # 5. add + bench inherit transcript excerpt & research context.
+        run_cli(REVA_CODE_PY, self.ws, "add", "brain-short", "stirrup-hook", "--from", "0", "--to", "2.5", lab_dir=self.lab_dir)
+        with open(os.path.join(sdir, "stirrup-hook", "notes.md"), encoding="utf-8") as fp:
+            notes = fp.read()
+        self.assertIn("Subject Context & Spoken Narration", notes)
+        self.assertIn("Stirrup hook 135 degrees per SNI 2847.", notes)
+        self.assertIn("civil-engineering", notes)
+
+        run_cli(REVA_CODE_PY, self.ws, "bench", "brain-short", "stirrup-hook", "--tool", "ffmpeg-compositor", lab_dir=self.lab_dir)
+        with open(os.path.join(sdir, "stirrup-hook", "bench", "ffmpeg-compositor", "bench.json"), encoding="utf-8") as fp:
+            bcfg = json.load(fp)
+        self.assertTrue(bcfg["transcript_excerpt"])
+        self.assertEqual(bcfg["research_context"]["status"], "researched")
+
+        # 6. recommend picks up researched domain & concept tokens.
+        rec = json.loads(run_cli(REVA_LAB_PY, self.ws, "recommend", "brain-short", "--json", lab_dir=self.lab_dir).stdout)
+        self.assertIn("civil-engineering", rec["signals"])
+
+        # 7. skill-export.md includes research section & has no missing transcript/research gaps.
+        run_cli(REVA_CODE_PY, self.ws, "skill", "brain-short", lab_dir=self.lab_dir)
+        with open(os.path.join(sdir, "skill-export.md"), encoding="utf-8") as fp:
+            exp = fp.read()
+        self.assertIn("## Subject Understanding & Research Sources", exp)
+        self.assertIn("SNI 2847 Stirrup Hook Provision", exp)
+        self.assertNotIn("Transcript missing", exp)
+        self.assertNotIn("Subject research brief is still", exp)
+
+        # 8. Strict research check now passes cleanly.
+        ok_strict = run_cli(REVA_STYLE_PY, self.ws, "check", "brain-short", "--strict-research", lab_dir=self.lab_dir)
+        self.assertIn("transcript   OK", ok_strict.stdout)
+        self.assertIn("research     OK", ok_strict.stdout)
+
+    def test_11_visual_anatomy_bench_and_audit_gate_e2e(self):
+        from PIL import Image, ImageDraw
+
+        run_cli(REVA_PY, self.ws, "code", "scrape", "brain-audit", self.short_mp4, lab_dir=self.lab_dir)
+        run_cli(REVA_PY, self.ws, "transcribe", "brain-audit", "--silent", lab_dir=self.lab_dir)
+        run_cli(
+            REVA_PY, self.ws, "research", "add-concept", "brain-audit",
+            "--term", "Stirrup 135 hook",
+            "--meaning", "Continuous closed hoop wrapping 4 corner bars with 135-deg parallel tails into core",
+            "--mechanism", "Cover spalling exposes 90-deg tails, whereas 135-deg tails stay locked in core",
+            "--specs", "D_bend >= 4*db; l_ext = max(6*db, 75 mm)",
+            "--anatomy", "Single TubeGeometry path wraps outside corner bars then folds both ends 135-deg inward",
+            "--must-show", "Single continuous loop wraps outside all 4 corner bars",
+            "--must-show", "Parallel 135-deg tails penetrate core inside hoop",
+            "--wrong", "Floating detached sticks or unbent outward tail",
+            "--at", "0,3",
+            lab_dir=self.lab_dir,
+        )
+        # Internet evidence gate blocks complete until a verified external URL or local asset exists.
+        no_ev = run_cli(
+            REVA_PY, self.ws, "research", "complete", "brain-audit",
+            "--what", "SNI 2847 stirrup hook anatomy check", "--domain", "civil-engineering",
+            lab_dir=self.lab_dir, check=False,
+        )
+        self.assertNotEqual(no_ev.returncode, 0)
+        self.assertIn("internet evidence gate", no_ev.stdout + no_ev.stderr)
+
+        run_cli(
+            REVA_PY, self.ws, "research", "add-source", "brain-audit",
+            "--title", "SNI 2847 Table 25.3.2", "--kind", "standard",
+            "--url", "https://en.wikipedia.org/wiki/Rebar",
+            "--takeaway", "135-deg hook extension max(6db, 75 mm)",
+            lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_PY, self.ws, "research", "complete", "brain-audit",
+            "--what", "SNI 2847 stirrup hook anatomy check", "--domain", "civil-engineering",
+            lab_dir=self.lab_dir,
+        )
+
+        # 1. add & bench seed checklist.json + anatomy_specs in bench.json
+        run_cli(REVA_CODE_PY, self.ws, "add", "brain-audit", "stirrup-rig", "--from", "0", "--to", "3", lab_dir=self.lab_dir)
+        sdir = os.path.join(self.ws, "brain-audit")
+        tech_dir = os.path.join(sdir, "stirrup-rig")
+        with open(os.path.join(tech_dir, "notes.md"), encoding="utf-8") as fp:
+            notes = fp.read()
+        self.assertIn("Anatomy (Stirrup 135 hook)", notes)
+        self.assertIn("Avoid trap", notes)
+
+        run_cli(REVA_CODE_PY, self.ws, "bench", "brain-audit", "stirrup-rig", "--tool", "threejs-webgl", lab_dir=self.lab_dir)
+        bench_dir = os.path.join(tech_dir, "bench", "threejs-webgl")
+        self.assertTrue(os.path.exists(os.path.join(bench_dir, "bench_scene.html")))
+        self.assertTrue(os.path.exists(os.path.join(bench_dir, "render_bench.py")))
+        with open(os.path.join(bench_dir, "bench.json"), encoding="utf-8") as fp:
+            bcfg = json.load(fp)
+        self.assertEqual(bcfg["checklist_items"], 2)
+        self.assertGreaterEqual(len(bcfg["anatomy_specs"]), 2)
+
+        # 2. compare supports direct PNG stills + --crop zoom + schematic banner
+        p1 = os.path.join(self.tmp.name, "mine_0.png")
+        p2 = os.path.join(self.tmp.name, "mine_1.png")
+        schem = os.path.join(self.tmp.name, "schem.png")
+        for idx, dst in enumerate((p1, p2, schem)):
+            im = Image.new("RGB", (240, 320), (220 - idx * 20, 225, 230))
+            d = ImageDraw.Draw(im)
+            d.rectangle([50, 70, 190, 250], outline=(139, 26, 43), width=6)
+            im.save(dst)
+
+        run_cli(
+            REVA_CODE_PY, self.ws, "compare", "brain-audit", "stirrup-rig",
+            "--tool", "threejs-webgl", "--mine", f"{p1},{p2}", "--ref-at", "0.5,2.5",
+            lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_CODE_PY, self.ws, "compare", "brain-audit", "stirrup-rig",
+            "--tool", "threejs-webgl", "--mine", f"{p1},{p2}", "--ref-at", "0.5,2.5",
+            "--crop", "0.2,0.2,0.6,0.6", "--schematic", schem,
+            lab_dir=self.lab_dir,
+        )
+        self.assertTrue(os.path.exists(os.path.join(tech_dir, "compare_threejs-webgl.jpg")))
+        self.assertTrue(os.path.exists(os.path.join(tech_dir, "compare_threejs-webgl_zoom.jpg")))
+        self.assertTrue(os.path.exists(p1))
+
+        # 3. Hard visual audit gate blocks verify while pending or failing
+        blk1 = run_cli(
+            REVA_CODE_PY, self.ws, "verify", "brain-audit", "stirrup-rig",
+            "--tool", "threejs-webgl", lab_dir=self.lab_dir, check=False,
+        )
+        self.assertNotEqual(blk1.returncode, 0)
+        self.assertIn("visual audit gate blocked verify", blk1.stdout + blk1.stderr)
+
+        run_cli(REVA_CODE_PY, self.ws, "audit", "brain-audit", "stirrup-rig", "--pass", "1", "--fail", "2", "--note", "needs fix", lab_dir=self.lab_dir)
+        blk2 = run_cli(
+            REVA_CODE_PY, self.ws, "verify", "brain-audit", "stirrup-rig",
+            "--tool", "threejs-webgl", lab_dir=self.lab_dir, check=False,
+        )
+        self.assertNotEqual(blk2.returncode, 0)
+
+        # 4. Passing all items unblocks verify and records 2/2 PASS in skill-export.md
+        aud_ok = run_cli(REVA_CODE_PY, self.ws, "audit", "brain-audit", "stirrup-rig", "--pass", "2", "--note", "Verified in zoom", lab_dir=self.lab_dir)
+        self.assertIn("2/2 pass", aud_ok.stdout)
+        run_cli(REVA_CODE_PY, self.ws, "verify", "brain-audit", "stirrup-rig", "--tool", "threejs-webgl", lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "skill", "brain-audit", lab_dir=self.lab_dir)
+        with open(os.path.join(sdir, "skill-export.md"), encoding="utf-8") as fp:
+            exp = fp.read()
+        self.assertIn("Visual audit:** `2/2 PASS`", exp)
+        self.assertNotIn("unfinished visual audit checkpoint", exp)
+
+    def test_12_internet_research_claims_fetch_and_evidence_gate(self):
+        run_cli(REVA_PY, self.ws, "code", "scrape", "net-brain", self.short_mp4, lab_dir=self.lab_dir)
+        sdir = os.path.join(self.ws, "net-brain")
+
+        srt_path = os.path.join(self.tmp.name, "net_claims.srt")
+        with open(srt_path, "w", encoding="utf-8") as fp:
+            fp.write(
+                "1\n00:00:00,200 --> 00:00:02,200\nKait sengkang 135 derajat minimal 6d atau 75 mm karena mencegah begel terbuka.\n\n"
+                "2\n00:00:02,400 --> 00:00:04,500\nSelimut beton yang terkelupas membuat kait 90 derajat lepas dan besi utama buckling.\n"
+            )
+        run_cli(REVA_PY, self.ws, "transcribe", "net-brain", "--from-file", srt_path, "--lang", "id", lab_dir=self.lab_dir)
+
+        cl_out = run_cli(REVA_PY, self.ws, "research", "claims", "net-brain", lab_dir=self.lab_dir)
+        self.assertIn("VERIFIABLE TRANSCRIPT CLAIMS", cl_out.stdout)
+        self.assertIn("135 derajat", cl_out.stdout)
+        self.assertIn("query:", cl_out.stdout)
+
+        # Offline fetch against a local HTML engineering standard page via file:// URL.
+        html_path = os.path.join(self.tmp.name, "sni_2847_extract.html")
+        with open(html_path, "w", encoding="utf-8") as fp:
+            fp.write(
+                "<!doctype html><html><head><title>SNI 2847 Seismic Hook Rule</title>"
+                "<script>window.noise='skip me';</script></head><body>"
+                "<p>Nav noise skipped here.</p>"
+                "<p>Per SNI 2847 Tabel 25.3.2, a 135 degree seismic stirrup hook needs inside bend diameter 4db and extension max(6db, 75 mm) anchored inside the confined concrete core.</p>"
+                "<p>When outer concrete cover spalls under seismic drift, a 90 degree hook loses support and pops open, causing longitudinal rebar buckling.</p>"
+                "</body></html>"
+            )
+        from pathlib import Path
+        file_url = Path(html_path).resolve().as_uri()
+        f_out = run_cli(
+            REVA_PY, self.ws, "research", "fetch", "net-brain", file_url,
+            "--kind", "standard", "--query", "135 degree hook confined core", lab_dir=self.lab_dir,
+        )
+        self.assertIn("SNI 2847 Seismic Hook Rule", f_out.stdout)
+        self.assertIn("135 degree seismic stirrup hook", f_out.stdout)
+        self.assertNotIn("skip me", f_out.stdout)
+
+        cached_txt = os.path.join(sdir, "research", "assets", "sni_2847_extract.txt")
+        self.assertTrue(os.path.exists(cached_txt))
+
+        # Test internet-evidence gate independently on a fresh study whose source lacks URL/asset.
+        run_cli(REVA_PY, self.ws, "code", "scrape", "net-gate", self.short_mp4, lab_dir=self.lab_dir)
+        run_cli(REVA_PY, self.ws, "transcribe", "net-gate", "--silent", lab_dir=self.lab_dir)
+        run_cli(
+            REVA_PY, self.ws, "research", "add-source", "net-gate",
+            "--title", "Memory note without URL or file", "--kind", "standard",
+            "--takeaway", "Not yet backed by external URL", lab_dir=self.lab_dir,
+        )
+        blocked = run_cli(
+            REVA_PY, self.ws, "research", "complete", "net-gate",
+            "--what", "Gate check", "--domain", "civil-engineering",
+            lab_dir=self.lab_dir, check=False,
+        )
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("internet evidence gate", blocked.stdout + blocked.stderr)
+
+        # Complete net-brain (has fetched source + mechanism + specs) and propagate downstream.
+        run_cli(
+            REVA_PY, self.ws, "research", "add-concept", "net-brain",
+            "--term", "Seismic 135 hook",
+            "--meaning", "Stirrup hook anchored into confined concrete core",
+            "--mechanism", "Cover spalling unbraces 90-deg hooks while 135-deg tails stay locked in core concrete",
+            "--specs", "D_bend >= 4db (D10-D16); l_ext = max(6db, 75 mm)",
+            "--anatomy", "Closed stirrup wraps 4 corner bars; both tails fold 135-deg inward",
+            "--must-show", "Outer cover spall exposes 90-deg failure while 135-deg stays anchored in core",
+            "--at", "0,4", lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_PY, self.ws, "research", "complete", "net-brain",
+            "--what", "SNI 2847 seismic stirrup confinement mechanism",
+            "--domain", "civil-engineering", lab_dir=self.lab_dir,
+        )
+        run_cli(REVA_CODE_PY, self.ws, "add", "net-brain", "stirrup-mech", "--from", "0", "--to", "4", lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "bench", "net-brain", "stirrup-mech", "--tool", "threejs-webgl", lab_dir=self.lab_dir)
+
+        with open(os.path.join(sdir, "stirrup-mech", "notes.md"), encoding="utf-8") as fp:
+            notes = fp.read()
+        self.assertIn("Mechanism (Seismic 135 hook)", notes)
+        self.assertIn("Verified specs:** D_bend >= 4db", notes)
+
+        with open(os.path.join(sdir, "stirrup-mech", "bench", "threejs-webgl", "bench.json"), encoding="utf-8") as fp:
+            bcfg = json.load(fp)
+        self.assertEqual(bcfg["render_mode"], "schematic-clay-first")
+        self.assertEqual(bcfg["anatomy_specs"][0]["specs"], "D_bend >= 4db (D10-D16); l_ext = max(6db, 75 mm)")
+
+        run_cli(REVA_CODE_PY, self.ws, "compare", "net-brain", "stirrup-mech", "--tool", "threejs-webgl", "--mine", self.rebuild_mp4, "--mine-at", "1", "--ref-at", "1", lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "audit", "net-brain", "stirrup-mech", "--pass", "1", "--note", "schematic ok", lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "verify", "net-brain", "stirrup-mech", "--tool", "threejs-webgl", lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "skill", "net-brain", lab_dir=self.lab_dir)
+        with open(os.path.join(sdir, "skill-export.md"), encoding="utf-8") as fp:
+            exp = fp.read()
+        self.assertIn("SNI 2847 Seismic Hook Rule", exp)
+        self.assertIn("specs: D_bend >= 4db", exp)
+
+    def test_13_research_auto_and_run_bench_workflow(self):
+        from pathlib import Path
+        from PIL import Image, ImageDraw
+
+        run_cli(REVA_PY, self.ws, "code", "scrape", "auto-flow", self.short_mp4, lab_dir=self.lab_dir)
+        sdir = os.path.join(self.ws, "auto-flow")
+
+        srt_path = os.path.join(self.tmp.name, "auto_claims.srt")
+        with open(srt_path, "w", encoding="utf-8") as fp:
+            fp.write("1\n00:00:00,200 --> 00:00:02,500\nKait sengkang 135 derajat minimal 6d mencegah begel terbuka.\n")
+        run_cli(REVA_PY, self.ws, "transcribe", "auto-flow", "--from-file", srt_path, "--lang", "id", lab_dir=self.lab_dir)
+
+        # Prepare offline HTML + PNG fixtures for research.auto_research
+        local_html = os.path.join(self.tmp.name, "auto_ref.html")
+        with open(local_html, "w", encoding="utf-8") as fp:
+            fp.write("<html><head><title>Offline SNI Ref</title></head><body><p>SNI 2847 requires 135 degree hook >= 6d and 75 mm inside core concrete.</p></body></html>")
+        local_png = os.path.join(self.tmp.name, "auto_diag.png")
+        Image.new("RGB", (320, 200), (240, 244, 248)).save(local_png)
+
+        import research as mod_research
+
+        orig_ws = mod_research.web_search
+        orig_si = mod_research.search_images
+        try:
+            mod_research.web_search = lambda q, max_results=5: [
+                {"title": "Offline SNI Ref", "url": Path(local_html).resolve().as_uri(), "snippet": "135 deg hook", "provider": "mock"}
+            ]
+            mod_research.search_images = lambda q, max_results=3, include_pdf=False: [
+                {"title": "auto-diagram.png", "url": Path(local_png).resolve().as_uri(), "mime": "image/png", "width": 320, "height": 200, "description": "diag", "provider": "mock"}
+            ]
+            ares = mod_research.auto_research(sdir, max_claims=1, download_images=1, fetch_pages=1, max_results=3)
+        finally:
+            mod_research.web_search = orig_ws
+            mod_research.search_images = orig_si
+
+        self.assertEqual(len(ares["downloaded_images"]), 1)
+        self.assertEqual(len(ares["fetched_pages"]), 1)
+        self.assertTrue(mod_research.has_verified_source(sdir))
+
+        run_cli(
+            REVA_PY, self.ws, "research", "add-concept", "auto-flow",
+            "--term", "Auto Hook 135", "--meaning", "Stirrup hook in core",
+            "--must-show", "Stub schematic square passes full and zoom compare",
+            "--at", "0,2", lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_PY, self.ws, "research", "complete", "auto-flow",
+            "--what", "Offline auto research smoke study", "--domain", "civil-engineering",
+            lab_dir=self.lab_dir,
+        )
+
+        run_cli(REVA_CODE_PY, self.ws, "add", "auto-flow", "auto-rig", "--from", "0", "--to", "3", lab_dir=self.lab_dir)
+        # Stage fast deterministic render_bench.py stub in bench/threejs-webgl
+        bench_dir = os.path.join(sdir, "auto-flow" if False else "auto-rig", "bench", "threejs-webgl")
+        run_cli(REVA_CODE_PY, self.ws, "bench", "auto-flow", "auto-rig", "--tool", "threejs-webgl", lab_dir=self.lab_dir)
+        stub_runner = os.path.join(bench_dir, "render_bench.py")
+        with open(stub_runner, "w", encoding="utf-8") as fp:
+            fp.write(
+                "import argparse, os\n"
+                "from PIL import Image, ImageDraw\n"
+                "ap = argparse.ArgumentParser(); ap.add_argument('--at', default='0,1')\n"
+                "a = ap.parse_args()\n"
+                "here = os.path.dirname(os.path.abspath(__file__))\n"
+                "for i, _ in enumerate(a.at.split(',')):\n"
+                "    im = Image.new('RGB', (360, 240), (238, 243, 247))\n"
+                "    ImageDraw.Draw(im).rectangle([80, 50, 280, 190], outline=(224, 122, 20), width=8)\n"
+                "    im.save(os.path.join(here, f'out_{i}.png'))\n"
+            )
+
+        rb = run_cli(
+            REVA_CODE_PY, self.ws, "run-bench", "auto-flow", "auto-rig",
+            "--tool", "threejs-webgl", "--at", "0,1", "--ref-at", "0.5,2.5",
+            lab_dir=self.lab_dir,
+        )
+        self.assertIn("AUDIT STATUS:", rb.stdout)
+        tech_dir = os.path.join(sdir, "auto-rig")
+        self.assertTrue(os.path.exists(os.path.join(tech_dir, "compare_threejs-webgl.jpg")))
+        self.assertTrue(os.path.exists(os.path.join(tech_dir, "compare_threejs-webgl_zoom.jpg")))
+
+    def test_14_structured_code_kit_promote_and_reuse_bootstrap(self):
+        from PIL import Image, ImageDraw
+
+        # Video 1 builds a custom structured RevaCAD bench, verifies, and promotes it.
+        run_cli(REVA_PY, self.ws, "code", "scrape", "vid1-struct", self.short_mp4, lab_dir=self.lab_dir)
+        run_cli(REVA_PY, self.ws, "transcribe", "vid1-struct", "--silent", lab_dir=self.lab_dir)
+        run_cli(
+            REVA_PY, self.ws, "research", "add-concept", "vid1-struct",
+            "--term", "Beam Stirrup Rig", "--meaning", "Structured beam rig",
+            "--must-show", "Beam rig renders cleanly", "--at", "0,2", lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_PY, self.ws, "research", "add-source", "vid1-struct",
+            "--title", "Beam Ref", "--kind", "standard", "--url", "https://en.wikipedia.org/wiki/Rebar",
+            lab_dir=self.lab_dir,
+        )
+        run_cli(
+            REVA_PY, self.ws, "research", "complete", "vid1-struct",
+            "--what", "Beam structural study", "--domain", "civil-engineering", lab_dir=self.lab_dir,
+        )
+        run_cli(REVA_CODE_PY, self.ws, "add", "vid1-struct", "beam-rig", "--from", "0", "--to", "3", lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "bench", "vid1-struct", "beam-rig", "--tool", "threejs-webgl", lab_dir=self.lab_dir)
+
+        sdir1 = os.path.join(self.ws, "vid1-struct")
+        bdir1 = os.path.join(sdir1, "beam-rig", "bench", "threejs-webgl")
+        # Lab kit primitive was auto-staged into Video 1's bench.
+        self.assertTrue(os.path.exists(os.path.join(bdir1, "threejs_schematic.js")))
+
+        scene1 = os.path.join(bdir1, "bench_scene.html")
+        with open(scene1, "w", encoding="utf-8") as fp:
+            fp.write(
+                "<!doctype html><html><script src='./three.min.js'></script>"
+                "<script src='./threejs_schematic.js'></script><body><script>\n"
+                "function buildCustomBeamRig(span, depth) { return { span, depth }; }\n"
+                "const ctx = RevaCAD.boot({ headerNum: 1, headerTitle: 'Beam' });\n"
+                "</script></body></html>\n"
+            )
+
+        p0 = os.path.join(self.tmp.name, "s14_0.png")
+        im = Image.new("RGB", (320, 200), (238, 243, 247))
+        ImageDraw.Draw(im).rectangle([40, 40, 280, 160], outline=(224, 122, 20), width=6)
+        im.save(p0)
+        run_cli(REVA_CODE_PY, self.ws, "compare", "vid1-struct", "beam-rig", "--tool", "threejs-webgl", "--mine", p0, "--ref-at", "1", lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "audit", "vid1-struct", "beam-rig", "--pass", "1", "--note", "ok", lab_dir=self.lab_dir)
+        run_cli(
+            REVA_CODE_PY, self.ws, "verify", "vid1-struct", "beam-rig",
+            "--tool", "threejs-webgl", "--promote", "--id", "test-beam-rig",
+            "--category", "3d-explainer", "--tags", "beam,revacad", lab_dir=self.lab_dir,
+        )
+
+        # Pattern code snapshot + extracted AST/JS symbol structure exist in isolated lab_dir.
+        snap_scene = os.path.join(self.lab_dir, "patterns", "test-beam-rig", "bench_scene.html")
+        snap_meta = os.path.join(self.lab_dir, "patterns", "test-beam-rig", "pattern.json")
+        self.assertTrue(os.path.exists(snap_scene))
+        self.assertTrue(os.path.exists(snap_meta))
+
+        code_cmd = run_cli(REVA_LAB_PY, self.ws, "library", "code", "test-beam-rig", lab_dir=self.lab_dir)
+        self.assertIn("buildCustomBeamRig", code_cmd.stdout)
+        self.assertIn("RevaCAD", code_cmd.stdout)
+
+        srch_sym = run_cli(REVA_LAB_PY, self.ws, "library", "search", "buildCustomBeamRig", lab_dir=self.lab_dir)
+        self.assertIn("test-beam-rig", srch_sym.stdout)
+
+        kit_out = run_cli(REVA_LAB_PY, self.ws, "kit", lab_dir=self.lab_dir)
+        self.assertIn("threejs_schematic.js", kit_out.stdout)
+
+        # Video 2 reuses test-beam-rig and gets Video 1's proven bench_scene.html automatically!
+        run_cli(REVA_PY, self.ws, "code", "scrape", "vid2-struct", self.short_mp4, lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "add", "vid2-struct", "beam-copy", "--from", "0", "--to", "3", lab_dir=self.lab_dir)
+        run_cli(REVA_CODE_PY, self.ws, "reuse", "vid2-struct", "beam-copy", "--pattern", "test-beam-rig", lab_dir=self.lab_dir)
+        b_out = run_cli(REVA_CODE_PY, self.ws, "bench", "vid2-struct", "beam-copy", "--tool", "threejs-webgl", lab_dir=self.lab_dir)
+        self.assertIn("bootstrapped from: test-beam-rig", b_out.stdout)
+
+        sdir2 = os.path.join(self.ws, "vid2-struct")
+        scene2 = os.path.join(sdir2, "beam-copy", "bench", "threejs-webgl", "bench_scene.html")
+        with open(scene2, encoding="utf-8") as fp:
+            self.assertIn("buildCustomBeamRig", fp.read())
+        with open(os.path.join(sdir2, "beam-copy", "bench", "threejs-webgl", "bench.json"), encoding="utf-8") as fp:
+            bcfg2 = json.load(fp)
+        self.assertEqual(bcfg2["bootstrapped_from_pattern"], "test-beam-rig")
+        self.assertIn("threejs_schematic.js", bcfg2["kit_files"])
+
 
 if __name__ == "__main__":
     unittest.main()

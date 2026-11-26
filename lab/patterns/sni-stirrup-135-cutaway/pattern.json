@@ -1,0 +1,40 @@
+{
+  "schema": "reva-pattern-code",
+  "version": 1,
+  "id": "sni-stirrup-135-cutaway",
+  "winning_engine": "threejs-webgl",
+  "source_study": "beton-fb-test",
+  "source_technique": "bending-jig-135",
+  "code_structure": {
+    "files": [
+      "README.md",
+      "bench_scene.html",
+      "render_bench.py",
+      "scene.html"
+    ],
+    "symbols": [
+      "def find_browser()",
+      "def main(argv)"
+    ],
+    "libraries": [
+      "three.min.js",
+      "threejs_schematic.js",
+      "RevaCAD",
+      "three.js",
+      "argparse",
+      "json",
+      "os",
+      "shutil",
+      "subprocess",
+      "tempfile"
+    ],
+    "total_lines": 266
+  },
+  "audit": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "pending": 0,
+    "all_passed": true
+  }
+}
