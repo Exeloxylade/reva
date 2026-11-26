@@ -21,6 +21,7 @@ An **Engineering Lab** and video reverse-engineering toolkit for Kiro Crew, Code
 ### Engineering Lab (`reva-lab`)
 ```cmd
 python reva_lab.py engines
+python reva_lab.py sync-app
 python reva_lab.py library search "animated map"
 python reva_lab.py recommend my-study --tags "animated-map,route"
 python reva_lab.py register my-engine --name "My Engine" --kind code-3d --strengths "pbr-3d,physics" --bin my-engine
@@ -53,7 +54,7 @@ python reva_style.py deliver my-study --promote
 | File | Job |
 |---|---|
 | [`SKILL.md`](SKILL.md) | Router directing to [`skills/reva-lab/SKILL.md`](skills/reva-lab/SKILL.md), [`skills/reva-code/SKILL.md`](skills/reva-code/SKILL.md), and [`skills/reva-style/SKILL.md`](skills/reva-style/SKILL.md) |
-| [`reva_lab.py`](reva_lab.py) / [`reva-lab.cmd`](reva-lab.cmd) | Engineering Lab CLI (`engines`, `register`, `harnesses`, `recommend`, `library`, `promote`, `promote-style`) |
+| [`reva_lab.py`](reva_lab.py) / [`reva-lab.cmd`](reva-lab.cmd) | Engineering Lab CLI (`engines`, `register`, `harnesses`, `recommend`, `library`, `promote`, `promote-style`, `sync-app`) |
 | [`reva_code.py`](reva_code.py) / [`reva-code.cmd`](reva-code.cmd) | Pure coding & test-bench CLI (`add`, `bench`, `reuse`, `stills --grid`, `colors`, `sound`, `compare --tool`, `verdict`, `verify --promote`, `skill`) |
 | [`reva_style.py`](reva_style.py) / [`reva-style.cmd`](reva-style.cmd) | Prompt-style cloning CLI (`scrape`, `beats`, `scaffold`, local dry-run `check`, `deliver`) |
 | [`reva.py`](reva.py) / [`reva.cmd`](reva.cmd) | Unified thin router (`reva lab ...` / `reva code ...` / `reva style ...` + top-level shortcuts) |

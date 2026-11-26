@@ -7,7 +7,7 @@ Three specialized tools share one measurement engine and Engineering Lab:
   reva style <cmd> ...    (or reva_style.py / reva-style.cmd) Prompt-style cloning -> Automated-Lunch-Free
 
 Direct top-level shortcuts also work:
-  Lab:     engines, register, harnesses, recommend, library, promote, promote-style
+  Lab:     engines, register, harnesses, recommend, library, promote, promote-style, sync-app
   Coding:  start, add, bench, reuse, stills, colors, sound, compare, verdict, verify, skill
   Style:   beats, scaffold, check, deliver
   Shared:  doctor, scrape, measure, status
@@ -19,7 +19,7 @@ import reva_code
 import reva_lab
 import reva_style
 
-_LAB_CMDS = {"engines", "register", "harnesses", "recommend", "library", "promote", "promote-style"}
+_LAB_CMDS = {"engines", "register", "harnesses", "recommend", "library", "promote", "promote-style", "sync-app"}
 _STYLE_CMDS = {"doctor", "beats", "scaffold", "check", "deliver"}
 _CODE_CMDS = {"start", "measure", "add", "bench", "reuse", "stills", "colors", "sound", "compare", "verdict", "verify", "skill", "status"}
 _STYLE_SCRAPE_FLAGS = ("--style", "--beats", "--framing", "--app")

@@ -63,3 +63,4 @@ The Engineering Lab connects reference video measurements to **actual runnable t
 | `library list \| search <q> \| show <id>` | Browse, search, or inspect cross-study reusable patterns |
 | `promote <study> <technique> [...]` | Promote a verified coding technique into `lab/library.json` |
 | `promote-style <study> [...]` | Promote a completed `reva-style` style into `lab/library.json` |
+| `sync-app [--app <dir>] [--json]` | Scan `Automated-Lunch-Free/styles/*` and sync all validated styles into `lab/library.json` |

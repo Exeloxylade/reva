@@ -357,3 +357,78 @@ def promote_style(
         lab_root=lab_root,
     )
     return entry, created
+
+
+def sync_app_styles(app_dir=None, lab_root=None):
+    """Scan Automated-Lunch-Free/styles/* and upsert validated reference styles into lab/library.json."""
+    import glob
+    import style_kit
+
+    app = C.find_app(app_dir)
+    if not app:
+        raise SystemExit("Automated-Lunch-Free app folder not found (pass --app <folder> or set REVA_APP)")
+
+    files = sorted(glob.glob(os.path.join(app, "styles", "*", "*.style.json")))
+    synced = []
+    skipped = []
+    for sf in files:
+        sid = os.path.basename(os.path.dirname(sf))
+        if os.path.basename(sf) != f"{sid}.style.json":
+            skipped.append({"id": sid, "reason": "filename mismatch"})
+            continue
+        chk = style_kit.check_style_local(sf, app_dir=app)
+        if chk["bom"] or chk["placeholders"] or (chk["style_check_ran"] and not chk["style_check_ok"]):
+            skipped.append({"id": sid, "reason": "failed style-check or unresolved placeholders"})
+            continue
+
+        style = _read_json(sf) or {}
+        D = style.get("direction") or {}
+        L = style.get("look") or {}
+        if not isinstance(D, dict) or not D:
+            skipped.append({"id": sid, "reason": "look-only style (no direction)"})
+            continue
+        SM = D.get("scene_maker") or {}
+        framing = L.get("framing") or "flat"
+        aspect = D.get("default_aspect") or "16:9"
+        wpm = (D.get("narration") or {}).get("wpm", {}).get("value")
+        avg_shot = SM.get("avg_shot_sec", {}).get("value")
+        is_silent = (D.get("voice") == "off") or ((D.get("sound_design") or {}).get("voice") == "off")
+
+        tags = ["prompt-style", "automated-lunch-free", framing, aspect]
+        if is_silent:
+            tags.extend(["asmr", "foley", "silent-voice"])
+        if D.get("domain"):
+            tags.append(str(D["domain"]))
+        if D.get("story", {}).get("loop_ending"):
+            tags.append("loop-ending")
+        if L.get("overlay_layout"):
+            tags.append("overlay-layout")
+        tags.extend(_tokenize(sid))
+
+        baseline = {"aspect_ratio": aspect, "framing": framing}
+        if wpm:
+            baseline["wpm"] = wpm
+        if avg_shot:
+            baseline["avg_shot_sec"] = avg_shot
+        if is_silent:
+            baseline["voice"] = "off"
+
+        pid = f"prompt-style-{sid}"
+        existing = get_pattern(pid, lab_root=lab_root)
+        entry, created = upsert_pattern(
+            {
+                "id": pid,
+                "category": "prompt-style",
+                "tags": _dedupe_list(tags),
+                "winning_engine": "automated-lunch-free",
+                "target_skill": f"Automated-Lunch-Free/styles/{sid}",
+                "template": f"styles/{sid}/{sid}.style.json",
+                "summary": str(D.get("purpose") or style.get("name") or sid),
+                "baseline": baseline,
+                "used_in": (existing.get("used_in") if existing else None) or [f"alf:{sid}"],
+            },
+            lab_root=lab_root,
+        )
+        synced.append({"id": entry["id"], "created": created})
+
+    return {"app_dir": app, "synced": synced, "skipped": skipped}

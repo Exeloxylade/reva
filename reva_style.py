@@ -69,6 +69,7 @@ def cmd_scaffold(a, root):
     jpath, mpath = style_kit.scaffold_style(
         O.sdir(root, a.study), sid, app_dir=app, name=a.name,
         framing=a.framing, refresh_metrics=a.refresh_metrics,
+        silent_asmr=a.silent_asmr, domain=a.domain,
     )
     O.refresh_dossier(root, a.study, focus="style")
     print(f"style json -> {jpath}")
@@ -82,6 +83,7 @@ def cmd_scrape(a, root):
     app = C.find_app(a.app)
     jpath, mpath = style_kit.scaffold_style(
         O.sdir(root, a.study), sid, app_dir=app, framing=a.framing, refresh_metrics=True,
+        silent_asmr=a.silent_asmr, domain=a.domain,
     )
     bjson, bprev, beats = style_kit.build_beats(
         O.sdir(root, a.study), sid, O.ref_video(root, a.study), auto=True, count=a.beats,
@@ -230,7 +232,9 @@ def build_parser():
     s.add_argument("source")
     s.add_argument("--style", help="style id (defaults to <study>)")
     s.add_argument("--beats", type=int, default=8)
-    s.add_argument("--framing", choices=["flat", "film"])
+    s.add_argument("--framing", choices=["flat", "film", "fixed-tabletop"])
+    s.add_argument("--silent-asmr", action="store_true", help="scaffold silent ASMR Foley style (voice:off, graphics:false)")
+    s.add_argument("--domain", help="optional domain tag for silent-process-asmr (e.g. culinary, automotive-restoration)")
     s.add_argument("--sps", default="auto")
     s.add_argument("--app")
 
@@ -255,7 +259,9 @@ def build_parser():
     s.add_argument("study")
     s.add_argument("style_id", nargs="?")
     s.add_argument("--name")
-    s.add_argument("--framing", choices=["flat", "film"])
+    s.add_argument("--framing", choices=["flat", "film", "fixed-tabletop"])
+    s.add_argument("--silent-asmr", action="store_true", help="scaffold silent ASMR Foley style (voice:off, graphics:false)")
+    s.add_argument("--domain", help="optional domain tag for silent-process-asmr")
     s.add_argument("--app")
     s.add_argument("--refresh-metrics", action="store_true")
 

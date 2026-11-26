@@ -499,6 +499,43 @@ class TestRevaSplitTools(unittest.TestCase):
         rp = run_cli(REVA_LAB_PY, self.ws, "promote-style", "demo-style", "--tags", "clean,cards", lab_dir=self.lab_dir)
         self.assertIn("prompt-style-demo-style", rp.stdout)
 
+    def test_09_silent_asmr_scaffold_and_sync_app(self):
+        run_cli(
+            REVA_STYLE_PY, self.ws, "scrape", "asmr-cook", self.short_mp4,
+            "--beats", "2", "--framing", "fixed-tabletop", "--silent-asmr", "--domain", "culinary",
+            lab_dir=self.lab_dir,
+        )
+        sf = os.path.join(self.ws, "asmr-cook", "style", "asmr-cook", "asmr-cook.style.json")
+        with open(sf, encoding="utf-8") as fp:
+            sdata = json.load(fp)
+        self.assertEqual(sdata["look"]["framing"], "fixed-tabletop")
+        self.assertEqual(sdata["direction"]["voice"], "off")
+        self.assertEqual(sdata["direction"]["prompt_profile"], "silent-process-asmr")
+        self.assertEqual(sdata["direction"]["domain"], "culinary")
+        self.assertFalse(sdata["direction"]["graphics"])
+
+        completed = _fill_placeholders(sdata)
+        with open(sf, "w", encoding="utf-8") as fp:
+            json.dump(completed, fp, indent=2)
+        chk = run_cli(REVA_STYLE_PY, self.ws, "check", "asmr-cook", lab_dir=self.lab_dir)
+        self.assertIn("placeholders 0 (OK)", chk.stdout)
+
+        # Build a mock_app with one validated silent-ASMR style and sync into isolated lab_dir.
+        mock_app = os.path.join(self.tmp.name, "mock_app_sync")
+        os.makedirs(os.path.join(mock_app, "styles", "asmr-cook"), exist_ok=True)
+        os.makedirs(os.path.join(mock_app, "scripts"), exist_ok=True)
+        with open(os.path.join(mock_app, "scripts", "style-check.js"), "w", encoding="utf-8") as fp:
+            fp.write("console.log('MOCK OK');\n")
+        shutil.copy2(sf, os.path.join(mock_app, "styles", "asmr-cook", "asmr-cook.style.json"))
+
+        sync_res = run_cli(REVA_LAB_PY, self.ws, "sync-app", "--app", mock_app, lab_dir=self.lab_dir)
+        self.assertIn("prompt-style-asmr-cook", sync_res.stdout)
+
+        s_asmr = run_cli(REVA_LAB_PY, self.ws, "library", "search", "asmr", lab_dir=self.lab_dir)
+        self.assertIn("prompt-style-asmr-cook", s_asmr.stdout)
+        s_tab = run_cli(REVA_LAB_PY, self.ws, "library", "search", "fixed-tabletop", lab_dir=self.lab_dir)
+        self.assertIn("prompt-style-asmr-cook", s_tab.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -202,6 +202,20 @@ def cmd_promote_style(a, root):
     print(f"{verb} style pattern '{entry['id']}' in {lab_library.library_path(a.lab_dir)}")
 
 
+def cmd_sync_app(a, root):
+    res = lab_library.sync_app_styles(app_dir=a.app, lab_root=a.lab_dir)
+    if a.json:
+        print(json.dumps(res, indent=2))
+        return
+    print(f"=== SYNCED AUTOMATED-LUNCH-FREE STYLES ({len(res['synced'])}) ===")
+    print(f"  app dir: {res['app_dir']}")
+    for row in res["synced"]:
+        tag = "added" if row["created"] else "updated"
+        print(f"  [{tag:7}] {row['id']}")
+    if res["skipped"]:
+        print(f"  skipped ({len(res['skipped'])}): " + ", ".join(f"{x['id']} ({x['reason']})" for x in res["skipped"]))
+
+
 def build_parser():
     ap = argparse.ArgumentParser(prog="reva-lab", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", help="override workspace root (default: ./studies or REVA_WORKSPACE)")
@@ -265,6 +279,10 @@ def build_parser():
     s.add_argument("--tags")
     s.add_argument("--summary")
 
+    s = sub.add_parser("sync-app", help="scan Automated-Lunch-Free/styles/* and sync valid styles into lab/library.json")
+    s.add_argument("--app")
+    s.add_argument("--json", action="store_true")
+
     return ap
 
 
@@ -280,6 +298,7 @@ def main(argv=None):
         "library": cmd_library,
         "promote": cmd_promote,
         "promote-style": cmd_promote_style,
+        "sync-app": cmd_sync_app,
     }
     handlers[a.cmd](a, root)
 

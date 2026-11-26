@@ -101,7 +101,7 @@
       "id": "automated-lunch-free",
       "name": "Automated-Lunch-Free CLI Pipeline",
       "kind": "ai-pipeline",
-      "callable_via": "npm.cmd run make | npm.cmd run map | npm.cmd run style-test | node scripts/style-check.js",
+      "callable_via": "npm.cmd run make | npm.cmd run map | npm.cmd run gfx | npm.cmd run style-test | node scripts/style-check.js",
       "probes": {
         "app_check": "automated-lunch-free",
         "bin": ["node"]
@@ -113,7 +113,12 @@
         "storyboard",
         "photoreal-plates",
         "high-cut-pace",
-        "ai-narration"
+        "ai-narration",
+        "asmr-foley",
+        "fixed-tabletop",
+        "code-gfx",
+        "map-journey",
+        "evidence-footage"
       ],
       "limitations": [
         "Not suitable for exact pixel-locked UI layouts or deterministic D3 chart timing",

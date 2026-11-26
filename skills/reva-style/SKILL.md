@@ -28,7 +28,8 @@ Prompt-style cloning captures **art direction, story order, pacing, framing, and
    Read `dossier.md`, `ref\contact-sheet-*.jpg`, and `style\my-style\test\beats-preview.jpg`. Replace every `<TODO:...>` in `my-style.style.json`:
    - `look.art_style`, `character`, `background`, `lighting`: clear painting/model directions any prompt can follow (zero reference-specific character names or copyrighted titles).
    - `look.picture_rules`: **5–8 rules a stranger could draw from** (ideas per frame, subject scale, camera height, background simplicity, recurring symbols, text placement, panel/split/grid layouts).
-   - `look.framing`: `"flat"` (comic panels / 2D diagrams, front view) or `"film"` (real camera shots: wide, close, macro).
+   - `look.framing`: `"flat"` (comic panels / 2D diagrams, front view), `"film"` (real camera shots: wide, close, macro), or `"fixed-tabletop"` (locked macro overhead/slate perspective for ASMR process styles).
+   - For silent ASMR / Foley channels (0 spoken words), scaffold with `--silent-asmr --framing fixed-tabletop [--domain culinary|automotive-restoration]` to configure `direction.voice = "off"`, `graphics = false`, `prompt_profile = "silent-process-asmr"`, and `-18 LUFS` / `LRA 15` sound targets.
    - `look.text_in_image.allowed`: `true` only if the reference draws words/numbers inside panels (`false` for photo-real styles so text renders as clean overlays).
    - `direction.story.order` + `direction.scene_cards` + `direction.hook_0_5s` + `direction.narration.rules` / `line_templates`.
    - Optionally re-pick specific signature frames for golden beats:
@@ -51,6 +52,7 @@ Prompt-style cloning captures **art direction, story order, pacing, framing, and
    - **Pass gate = at least 6 of 8 beats** match the reference's idea, layout, symbols, and drawn words.
    - If it fails: fix `<id>.style.json` (`picture_rules`, `scene_cards`, `framing`, `text_in_image`) — **never weaken the beats** — and re-run `deliver` + `style-test`.
    - Finish with a 45 s video render (`npm run make -- --topic "..." --length 45 --style my-style --no-export`) and watch it end-to-end.
+   - `Automated-Lunch-Free` CLI supports full GUI parity: `--topic-override`, `--humor`, `--stop-after plan|frames`, `--approve <id>`, `--ref <img.png>`, `--list-styles`, `npm run map`, and `npm run gfx`.
 
 ---
 
@@ -71,10 +73,10 @@ Prompt-style cloning captures **art direction, story order, pacing, framing, and
 | Command | Job |
 |---|---|
 | `doctor` | Check Python, FFmpeg/ffprobe, `yt-dlp`, NumPy, Pillow, Node, and `Automated-Lunch-Free` |
-| `scrape <study> <source> [--style <id>] [--beats 8]` | Full style scrape: teardown + measure + dossier + scaffold + auto golden beats |
+| `scrape <study> <source> [--style <id>] [--beats 8] [--framing ...] [--silent-asmr]` | Full style scrape: teardown + measure + dossier + scaffold + auto golden beats |
 | `measure <study>` / `colors <study>` | Re-measure pacing/still%/WPM or whole-video hex palette |
 | `beats <study> [<id>] (--at ... \| --auto)` | Extract golden beat JPEGs + aligned narration + `beats-preview.jpg` |
-| `scaffold <study> [<id>] [--refresh-metrics]` | Create `<id>.style.json` + `<id>.md` (or refresh only measured metrics) |
+| `scaffold <study> [<id>] [--framing ...] [--silent-asmr] [--refresh-metrics]` | Create `<id>.style.json` + `<id>.md` (or refresh only measured metrics) |
 | `check <study> [--style <id>]` | Dry-run placeholder check + local `style-check.js` without copying |
 | `deliver <study> [--style <id>] [--promote]` | Validate, copy into `<app>\styles\<id>\`, run `style-check.js`, and optionally promote to `lab/library.json` |
 | `status [<study>]` | Show style studies, remaining placeholders (`ready` vs count), and delivery status |

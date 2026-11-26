@@ -5,9 +5,20 @@
     {
       "id": "animated-route-map",
       "category": "animated-map",
-      "tags": ["map", "animated-map", "route", "geography", "trail", "lat-lon", "travel", "geopolitics"],
+      "tags": [
+        "map",
+        "animated-map",
+        "route",
+        "geography",
+        "trail",
+        "lat-lon",
+        "travel",
+        "geopolitics"
+      ],
       "winning_engine": "animated-map",
-      "secondary_engines": ["hyperframes-2d"],
+      "secondary_engines": [
+        "hyperframes-2d"
+      ],
       "rejected_engines": [],
       "target_skill": "map-video",
       "template": "templates/route-short, templates/route-long",
@@ -15,15 +26,27 @@
       "baseline": {
         "notes": "Proven across Odyssey Shorts and full route explainers."
       },
-      "used_in": ["odyssey-route", "nutmeg-war"],
+      "used_in": [
+        "odyssey-route",
+        "nutmeg-war"
+      ],
       "updated_at": "2026-11-01"
     },
     {
       "id": "coastline-map-opener",
       "category": "animated-map",
-      "tags": ["map", "animated-map", "coastline", "opener", "real-media", "documentary"],
+      "tags": [
+        "map",
+        "animated-map",
+        "coastline",
+        "opener",
+        "real-media",
+        "documentary"
+      ],
       "winning_engine": "hyperframes-2d",
-      "secondary_engines": ["animated-map"],
+      "secondary_engines": [
+        "animated-map"
+      ],
       "rejected_engines": [],
       "target_skill": "tscs-finance-explainer",
       "template": "real-media A",
@@ -32,15 +55,27 @@
         "aspect_ratio": "16:9",
         "fps": 30
       },
-      "used_in": ["finance-doc"],
+      "used_in": [
+        "finance-doc"
+      ],
       "updated_at": "2026-10-31"
     },
     {
       "id": "data-line-chart-photo-cards",
       "category": "data-chart",
-      "tags": ["chart", "line-chart", "d3", "finance", "photo-cards", "data", "documentary"],
+      "tags": [
+        "chart",
+        "line-chart",
+        "d3",
+        "finance",
+        "photo-cards",
+        "data",
+        "documentary"
+      ],
       "winning_engine": "d3-charts",
-      "secondary_engines": ["hyperframes-2d"],
+      "secondary_engines": [
+        "hyperframes-2d"
+      ],
       "rejected_engines": [],
       "target_skill": "tscs-finance-explainer",
       "template": "templates/technique-linechart.html",
@@ -49,16 +84,30 @@
         "aspect_ratio": "16:9",
         "fps": 30,
         "wpm": 155,
-        "palette": ["#e9e8e6", "#8b1a2b", "#c8323e", "#1c1c1c"],
+        "palette": [
+          "#e9e8e6",
+          "#8b1a2b",
+          "#c8323e",
+          "#1c1c1c"
+        ],
         "font": "Poppins"
       },
-      "used_in": ["finance-doc"],
+      "used_in": [
+        "finance-doc"
+      ],
       "updated_at": "2026-10-31"
     },
     {
       "id": "document-card-highlighter",
       "category": "document-card",
-      "tags": ["document", "highlighter", "excerpt", "paper", "citation", "news"],
+      "tags": [
+        "document",
+        "highlighter",
+        "excerpt",
+        "paper",
+        "citation",
+        "news"
+      ],
       "winning_engine": "hyperframes-2d",
       "secondary_engines": [],
       "rejected_engines": [],
@@ -70,30 +119,52 @@
         "fps": 30,
         "accent": "#8b1a2b"
       },
-      "used_in": ["finance-doc"],
+      "used_in": [
+        "finance-doc"
+      ],
       "updated_at": "2026-10-31"
     },
     {
       "id": "topographic-paper-backdrop",
       "category": "background",
-      "tags": ["background", "paper", "topo", "texture", "documentary"],
+      "tags": [
+        "background",
+        "paper",
+        "topo",
+        "texture",
+        "documentary"
+      ],
       "winning_engine": "hyperframes-2d",
       "secondary_engines": [],
       "target_skill": "tscs-finance-explainer",
       "template": "tscs.js -> TSCS.topo",
       "summary": "Procedural off-white topographic contour paper canvas backdrop (#e9e8e6).",
       "baseline": {
-        "palette": ["#e9e8e6", "#1c1c1c"]
+        "palette": [
+          "#e9e8e6",
+          "#1c1c1c"
+        ]
       },
-      "used_in": ["finance-doc"],
+      "used_in": [
+        "finance-doc"
+      ],
       "updated_at": "2026-10-31"
     },
     {
       "id": "full-bleed-broll-overlays",
       "category": "b-roll",
-      "tags": ["b-roll", "footage", "name-plate", "drone", "overlay", "documentary"],
+      "tags": [
+        "b-roll",
+        "footage",
+        "name-plate",
+        "drone",
+        "overlay",
+        "documentary"
+      ],
       "winning_engine": "ffmpeg-compositor",
-      "secondary_engines": ["hyperframes-2d"],
+      "secondary_engines": [
+        "hyperframes-2d"
+      ],
       "rejected_engines": [],
       "target_skill": "tscs-finance-explainer",
       "template": "footage_hunt.py",
@@ -101,13 +172,24 @@
       "baseline": {
         "aspect_ratio": "16:9"
       },
-      "used_in": ["finance-doc", "indo-crash-v3"],
+      "used_in": [
+        "finance-doc",
+        "indo-crash-v3"
+      ],
       "updated_at": "2026-10-31"
     },
     {
       "id": "soft-transition-sfx-kit",
       "category": "sfx",
-      "tags": ["sfx", "sound", "audio", "swell", "pop", "hit", "transition"],
+      "tags": [
+        "sfx",
+        "sound",
+        "audio",
+        "swell",
+        "pop",
+        "hit",
+        "transition"
+      ],
       "winning_engine": "sfx-synthesis",
       "secondary_engines": [],
       "rejected_engines": [],
@@ -118,13 +200,24 @@
         "lufs": -16.0,
         "sfx_per_min": 42.7
       },
-      "used_in": ["finance-doc"],
+      "used_in": [
+        "finance-doc"
+      ],
       "updated_at": "2026-10-31"
     },
     {
       "id": "low-poly-continuous-3d-world",
       "category": "3d-explainer",
-      "tags": ["3d", "low-poly", "toon", "diorama", "continuous-camera", "cutaway", "shorts", "explainer"],
+      "tags": [
+        "3d",
+        "low-poly",
+        "toon",
+        "diorama",
+        "continuous-camera",
+        "cutaway",
+        "shorts",
+        "explainer"
+      ],
       "winning_engine": "threejs-webgl",
       "secondary_engines": [],
       "rejected_engines": [],
@@ -138,13 +231,25 @@
         "lufs": -13.8,
         "sfx_per_min": 76.5
       },
-      "used_in": ["davin-kopdes", "davin-lele"],
+      "used_in": [
+        "davin-kopdes",
+        "davin-lele"
+      ],
       "updated_at": "2026-11-01"
     },
     {
       "id": "3d-civil-apparatus-cutaway",
       "category": "3d-explainer",
-      "tags": ["3d", "engineering", "civil", "cutaway", "apparatus", "stress-test", "dimensions", "shorts"],
+      "tags": [
+        "3d",
+        "engineering",
+        "civil",
+        "cutaway",
+        "apparatus",
+        "stress-test",
+        "dimensions",
+        "shorts"
+      ],
       "winning_engine": "threejs-webgl",
       "secondary_engines": [],
       "rejected_engines": [],
@@ -155,13 +260,23 @@
         "aspect_ratio": "9:16",
         "duration_sec": 122.8
       },
-      "used_in": ["redha-beton"],
+      "used_in": [
+        "redha-beton"
+      ],
       "updated_at": "2026-11-01"
     },
     {
       "id": "prompt-style-stickman-explainer",
       "category": "prompt-style",
-      "tags": ["prompt-style", "stickman", "2d", "flat", "diagram", "explainer", "automated-lunch-free"],
+      "tags": [
+        "prompt-style",
+        "stickman",
+        "2d",
+        "flat",
+        "diagram",
+        "explainer",
+        "automated-lunch-free"
+      ],
       "winning_engine": "automated-lunch-free",
       "secondary_engines": [],
       "rejected_engines": [],
@@ -172,13 +287,23 @@
         "framing": "flat",
         "beats_passed": "8/8"
       },
-      "used_in": ["lumensia-kudanil"],
+      "used_in": [
+        "lumensia-kudanil"
+      ],
       "updated_at": "2026-11-23"
     },
     {
       "id": "prompt-style-isometric-3d",
       "category": "prompt-style",
-      "tags": ["prompt-style", "isometric", "3d", "diorama", "film", "shorts", "automated-lunch-free"],
+      "tags": [
+        "prompt-style",
+        "isometric",
+        "3d",
+        "diorama",
+        "film",
+        "shorts",
+        "automated-lunch-free"
+      ],
       "winning_engine": "automated-lunch-free",
       "secondary_engines": [],
       "rejected_engines": [],
@@ -190,8 +315,377 @@
         "framing": "film",
         "wpm": 178
       },
-      "used_in": ["redha-beton"],
+      "used_in": [
+        "redha-beton"
+      ],
       "updated_at": "2026-11-23"
+    },
+    {
+      "id": "prompt-style-car-restoration-asmr",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "film",
+        "9:16",
+        "asmr",
+        "foley",
+        "silent-voice",
+        "automotive-restoration",
+        "car-restoration-asmr",
+        "car",
+        "restoration"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/car-restoration-asmr",
+      "template": "styles/car-restoration-asmr/car-restoration-asmr.style.json",
+      "summary": "Hook viewers with an unbroken 0-to-100 first-person POV automotive restoration from abandoned barn discovery to enclosed transport, workshop lift inspection, mechanical rebuild, paint refinishing, detailing, first start, and showroom reveal.",
+      "baseline": {
+        "aspect_ratio": "9:16",
+        "framing": "film",
+        "wpm": 140,
+        "avg_shot_sec": 11,
+        "voice": "off"
+      },
+      "used_in": [
+        "alf:car-restoration-asmr"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-cooking-asmr",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "fixed-tabletop",
+        "9:16",
+        "asmr",
+        "foley",
+        "silent-voice",
+        "culinary",
+        "cooking-asmr",
+        "cooking"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/cooking-asmr",
+      "template": "styles/cooking-asmr/cooking-asmr.style.json",
+      "summary": "Hook mobile viewers with an unbroken 0-to-100 culinary progression matched to the requested dish: raw ingredient prep -> clean knife cuts -> seasoning -> dredge/batter -> pan/oil cook -> garnish/glaze -> crunch test -> final slice & steaming reveal.",
+      "baseline": {
+        "aspect_ratio": "9:16",
+        "framing": "fixed-tabletop",
+        "wpm": 140,
+        "avg_shot_sec": 3.4,
+        "voice": "off"
+      },
+      "used_in": [
+        "alf:cooking-asmr"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-experiment-v1",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "flat",
+        "16:9",
+        "overlay-layout",
+        "experiment-v1",
+        "experiment",
+        "v1"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/experiment-v1",
+      "template": "styles/experiment-v1/experiment-v1.style.json",
+      "summary": "Explain each scene with its main subject on the left and lower frame. Reserve a predetermined top-right area for independently animated code graphics. Never generate text, a placeholder card or guides inside the reserved area.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "framing": "flat",
+        "wpm": 155,
+        "avg_shot_sec": 2.6
+      },
+      "used_in": [
+        "alf:experiment-v1"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-isometric-3d-explainer",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "film",
+        "16:9",
+        "isometric-3d-explainer",
+        "isometric",
+        "3d",
+        "explainer"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/isometric-3d-explainer",
+      "template": "styles/isometric-3d-explainer/isometric-3d-explainer.style.json",
+      "summary": "Explain complex structural engineering or technical construction rules in a bite-sized, highly visual 3D diorama. Start with a common mistake and failure consequence (earthquake collapse), then introduce 5-6 numbered non-negotiable rules with clear dimension callouts, and conclude with an overview house and checklist.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "framing": "film",
+        "wpm": 178,
+        "avg_shot_sec": 15.3
+      },
+      "used_in": [
+        "alf:isometric-3d-explainer"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-stickman-historical-moment",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "flat",
+        "16:9",
+        "stickman-historical-moment",
+        "stickman",
+        "historical",
+        "moment"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/stickman-historical-moment",
+      "template": "styles/stickman-historical-moment/stickman-historical-moment.style.json",
+      "summary": "Tell a clear, playful stickman story through people, situations and consequences, with rich colors suited to the setting. Explain the topic using whichever picture communicates each line best: a lived situation, interaction, map, comparison, diagram, number or visual joke. Historical people can lead their own story, but the same visual language works for science, business, technology and everyday questions. Adapt the structure and cast to the requested topic, duration and tone.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "framing": "flat",
+        "wpm": 155,
+        "avg_shot_sec": 3.4
+      },
+      "used_in": [
+        "alf:stickman-historical-moment"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-stickman-history-epic",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "flat",
+        "16:9",
+        "stickman-history-epic",
+        "stickman",
+        "history",
+        "epic"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/stickman-history-epic",
+      "template": "styles/stickman-history-epic/stickman-history-epic.style.json",
+      "summary": "Tell a huge sweep of history (centuries to millennia) as one through-line story: a cold-open promise, a chapter roadmap, then about 10 dated chapters, each mixing maps, host explanations, cartoon scenes, a short comedy skit and a fun-fact aside, ending on a callback to the opening and an open question. Reuse the strategy for any long-span history topic.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "framing": "flat",
+        "wpm": 169,
+        "avg_shot_sec": 8.43
+      },
+      "used_in": [
+        "alf:stickman-history-epic"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-stickman-why-explainer",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "flat",
+        "16:9",
+        "stickman-why-explainer",
+        "stickman",
+        "why",
+        "explainer"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/stickman-why-explainer",
+      "template": "styles/stickman-why-explainer/stickman-why-explainer.style.json",
+      "summary": "Answer one strange everyday question ('why don't we eat X?' / 'how did they survive Y without Z?') in 6-9 minutes: a cold open that puts the viewer in the problem, the promise 'not one magic answer but a system of layers', then 4-5 numbered pillars, each its own mini-chapter with one big number and one labelled diagram, ending on a recap of every pillar, a link to today, and a reflective question for the comments. Same template in both references. Reuse for any 'why / how did they' topic (animals, food, history tech, science, money).",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "framing": "flat",
+        "wpm": 155,
+        "avg_shot_sec": 3.4
+      },
+      "used_in": [
+        "alf:stickman-why-explainer"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-weird-protocol-doodle-a",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "flat",
+        "16:9",
+        "weird-protocol-doodle-a",
+        "weird",
+        "protocol",
+        "doodle"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/weird-protocol-doodle-a",
+      "template": "styles/weird-protocol-doodle-a/weird-protocol-doodle-a.style.json",
+      "summary": "Hook viewers immediately with a concrete human contradiction or What-If premise, escalate step-by-step up a curiosity ladder through recognizable stickman characters experiencing the consequences, and explain the real mechanism at a calm, measured pace.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "framing": "flat",
+        "wpm": 150,
+        "avg_shot_sec": 2.6
+      },
+      "used_in": [
+        "alf:weird-protocol-doodle-a"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-weird-protocol-shorts",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "flat",
+        "9:16",
+        "loop-ending",
+        "weird-protocol-shorts",
+        "weird",
+        "protocol",
+        "shorts"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/weird-protocol-shorts",
+      "template": "styles/weird-protocol-shorts/weird-protocol-shorts.style.json",
+      "summary": "Hook vertical mobile viewers in the first 3 seconds with a personal 'you' contradiction, escalate through vivid everyday micro-scenes ('But it gets worse...'), and close with a seamless loop bridge back into the 0-second hook.",
+      "baseline": {
+        "aspect_ratio": "9:16",
+        "framing": "flat",
+        "wpm": 150,
+        "avg_shot_sec": 1.9
+      },
+      "used_in": [
+        "alf:weird-protocol-shorts"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-weird-protocol-v2",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "flat",
+        "16:9",
+        "weird-protocol-v2",
+        "weird",
+        "protocol",
+        "v2"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/weird-protocol-v2",
+      "template": "styles/weird-protocol-v2/weird-protocol-v2.style.json",
+      "summary": "Explain the topic through brisk, inventive and readable minimalist stickman storytelling. Choose action, visual analogies, comparisons, scale reveals and character interactions for the current narration. Preserve factual meaning, simple character construction and clear visual continuity.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "framing": "flat",
+        "wpm": 155,
+        "avg_shot_sec": 2.6
+      },
+      "used_in": [
+        "alf:weird-protocol-v2"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-weird-protocol-v3",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "flat",
+        "16:9",
+        "weird-protocol-v3",
+        "weird",
+        "protocol",
+        "v3"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/weird-protocol-v3",
+      "template": "styles/weird-protocol-v3/weird-protocol-v3.style.json",
+      "summary": "Hook viewers immediately with a concrete human contradiction or What-If premise, escalate step-by-step up a curiosity ladder through recognizable stickman characters experiencing the consequences, and explain the real mechanism at a calm, measured pace.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "framing": "flat",
+        "wpm": 150,
+        "avg_shot_sec": 4.2
+      },
+      "used_in": [
+        "alf:weird-protocol-v3"
+      ],
+      "updated_at": "2026-11-26"
+    },
+    {
+      "id": "prompt-style-weird-protocol",
+      "category": "prompt-style",
+      "tags": [
+        "prompt-style",
+        "automated-lunch-free",
+        "flat",
+        "16:9",
+        "weird-protocol",
+        "weird",
+        "protocol"
+      ],
+      "winning_engine": "automated-lunch-free",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "Automated-Lunch-Free/styles/weird-protocol",
+      "template": "styles/weird-protocol/weird-protocol.style.json",
+      "summary": "Explain the exact topic clearly through minimalist stickman situations, with the original channel mascot recognizable in the opening and an independently designed topic cast.",
+      "baseline": {
+        "aspect_ratio": "16:9",
+        "framing": "flat",
+        "wpm": 155,
+        "avg_shot_sec": 3.4
+      },
+      "used_in": [
+        "alf:weird-protocol"
+      ],
+      "updated_at": "2026-11-26"
     }
   ]
 }

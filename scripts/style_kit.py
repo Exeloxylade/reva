@@ -230,6 +230,8 @@ def write_dossier(study_dir, study_data=None, focus="all"):
     wpm_val = words_info.get("wpm") or td_script.get("wpm") or 0
     word_cnt = words_info.get("count") or td_script.get("words") or 0
     lines.append(f"- **Narration speed:** {word_cnt} words -> **{wpm_val} WPM**" + (f" (talk-span {words_info.get('wpm_talk_span')} WPM)" if words_info.get("wpm_talk_span") else ""))
+    if word_cnt == 0 and motion.get("samples") and motion.get("still_share", 1.0) < 0.35:
+        lines.append("- **Silent ASMR Foley hint:** 0 spoken words + moving visuals detected — consider `reva-style scaffold <study> --silent-asmr --framing fixed-tabletop`.")
 
     lines += ["", "## 3. Measured Color Palette"]
     if pal.get("main"):
@@ -564,7 +566,7 @@ def _apply_measured_metrics(style, td, ms, snd):
         L.setdefault("can_do", {})["camera_moves"] = motion.get("still_share", 1.0) < 0.8
 
 
-def scaffold_style(study_dir, style_id, app_dir=None, name=None, framing=None, refresh_metrics=False):
+def scaffold_style(study_dir, style_id, app_dir=None, name=None, framing=None, refresh_metrics=False, silent_asmr=False, domain=None):
     """Create (or refresh metrics in) style/<id>/<id>.style.json + <id>.md."""
     clean_id = re.sub(r"[^a-zA-Z0-9_-]+", "-", style_id.strip()).strip("-")
     if not clean_id:
@@ -589,12 +591,35 @@ def scaffold_style(study_dir, style_id, app_dir=None, name=None, framing=None, r
         style["id"] = clean_id
         style["name"] = name or td.get("title") or clean_id
         style.setdefault("look", {})["look_id"] = clean_id
-        if framing in ("flat", "film"):
+        if framing in ("flat", "film", "fixed-tabletop", "fixed"):
             style["look"]["framing"] = framing
         elif ms.get("motion", {}).get("samples"):
             style["look"]["framing"] = "film" if ms["motion"].get("moving_share", 0) > 0.5 else "flat"
 
     _apply_measured_metrics(style, td, ms, snd)
+
+    dur = float((td.get("video") or {}).get("duration") or ms.get("duration_sec") or 0)
+    fmt_kind = td.get("format_kind") or ""
+    if fmt_kind in ("vertical", "short") and dur >= 15:
+        style.setdefault("direction", {}).setdefault("default_length_sec", max(15, min(120, int(round(dur)))))
+
+    if silent_asmr:
+        D = style.setdefault("direction", {})
+        L = style.setdefault("look", {})
+        D["voice"] = "off"
+        D["graphics"] = False
+        D["sound_design"] = {"voice": "off", "target_lufs": -18, "lra": 15, "foley_fallback": True}
+        D["prompt_profile"] = "silent-process-asmr"
+        if domain:
+            D["domain"] = domain
+        D.setdefault("default_length_sec", max(15, min(120, int(round(dur)) if dur >= 15 else 60)))
+        L.setdefault("can_do", {})["camera_moves"] = False
+        L.setdefault("text_in_image", {})["allowed"] = False
+        cards = D.get("scene_cards") or []
+        if cards and isinstance(cards[0], dict):
+            cards[0]["resource"] = "generated-video"
+            if "<TODO" in str(cards[0].get("narration", "")):
+                cards[0]["narration"] = "None (silent ASMR process)"
 
     # Always write UTF-8 WITHOUT BOM (style-check.js rejects 0xFEFF).
     with open(json_path, "w", encoding="utf-8") as fp:
