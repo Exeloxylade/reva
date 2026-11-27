@@ -250,6 +250,36 @@
       ],
       "harness": "lab/harnesses/remotion",
       "install_hint": "npx create-video@latest"
+    },
+    {
+      "id": "web-browser",
+      "name": "Headless Web Browser & Ingredient Sourcer",
+      "kind": "research-sourcing",
+      "callable_via": "python reva.py research browse <study> <url> | python reva.py research shop <study> <query>",
+      "probes": {
+        "bin": ["msedge", "msedge.exe", "chrome", "chrome.exe", "google-chrome"],
+        "win_globs": [
+          "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+          "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe"
+        ]
+      },
+      "strengths": [
+        "js-rendering",
+        "web-screenshot",
+        "diagram-sourcing",
+        "archival-footage",
+        "cc-audio",
+        "3d-models",
+        "open-datasets",
+        "geo-data"
+      ],
+      "limitations": [
+        "Cannot bypass CAPTCHAs, login walls, or paywalls (reports blocked_by_gate transparently; use interactive /browser UI for authenticated portals)"
+      ],
+      "harness": "lab/harnesses/web-browser",
+      "install_hint": "Install Microsoft Edge or Google Chrome (or set REVA_BROWSER)"
     }
   ]
 }

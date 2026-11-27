@@ -22,8 +22,8 @@ Prompt-style cloning captures **art direction, story order, pacing, framing, and
      `python reva_style.py beats my-study my-style --auto`
    - Generates `dossier.md`, `research\brief.md`, `ref\transcript.txt`, `ref\measure.json`, `style\my-style\my-style.style.json`, and `beats-preview.jpg`.
 
-2. **Learn & Research from the Internet (`reva research`):**
-   Extract claims (`reva research claims my-study`), search external articles/specs & Wikimedia diagrams (`search_web`, `reva research search`, `reva research images --download`, `reva research fetch <url>`), and record physical mechanism, verified specs, and visual anatomy (`reva research add-concept --mechanism ... --specs ... --anatomy ... --must-show ... --wrong ...` / `complete`, which requires real URL/asset evidence) before writing `picture_rules` or `scene_cards`.
+2. **Learn & Research from the Internet (`reva research` / `reva-browse`):**
+   Use [`skills/reva-browse/SKILL.md`](../reva-browse/SKILL.md) to gather real references before writing `picture_rules` or `scene_cards`: run `reva research auto my-study`, source ingredients across 6 aisles (`reva research shop my-study "<query>" --aisle all --download 1`), render JS pages/diagrams (`reva research browse my-study <url>`), and record physical mechanism, verified specs, and visual anatomy (`reva research add-concept --mechanism ... --specs ... --anatomy ... --must-show ... --wrong ...` / `complete`, which enforces real URL/asset evidence).
 
 3. **Inspect contact sheets & author promptable style rules:**
    Replace every `<TODO:...>` in `my-style.style.json` grounded in the real subject understanding:

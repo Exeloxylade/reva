@@ -37,11 +37,13 @@ Never reverse-engineer pixels blindly without knowing what the narrator is expla
    Extract claims (`reva research claims my-study`), search authoritative specs, engineering articles & Wikimedia diagrams (`search_web`, `reva research search`, `reva research images --download`, `reva research fetch <url>`), and lock **physical cause-effect mechanism + verified standard specs + geometric anatomy + `must_show` checkpoints** before writing any 3D/2D code (`research complete` requires at least one real external URL or saved asset):
    ```cmd
    python reva.py research auto my-study
+   python reva.py research shop my-study "concrete stirrup" --aisle all --download 1
+   python reva.py research browse my-study "https://..." --query "seismic hook 135" --discover-links
    python reva.py research add-concept my-study --term "<term>" --meaning "<definition>" --mechanism "<cause -> effect physics>" --specs "<exact standard numbers>" --anatomy "<exact geometry>" --must-show "<falsifiable check>" --wrong "<common bug>" --at 16.5,21.5
    python reva.py research complete my-study --what "<what the video is>" --domain "<domain>" --implication "<how understanding shapes the schematic>"
    python reva_lab.py recommend my-study
    ```
-   *(Or step manually: `research claims` -> `search` -> `images --download 1` -> `fetch <url>`.)*
+   *(See [`skills/reva-browse/SKILL.md`](../reva-browse/SKILL.md) for all 6 ingredient aisles: docs, images, footage, audio, models3d, data.)*
 
 3. **Check Lab & Isolate One Technique (`reva-code add`, `reuse`):**
    ```cmd

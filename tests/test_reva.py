@@ -1038,6 +1038,83 @@ class TestRevaSplitTools(unittest.TestCase):
         self.assertEqual(bcfg2["bootstrapped_from_pattern"], "test-beam-rig")
         self.assertIn("threejs_schematic.js", bcfg2["kit_files"])
 
+    def test_15_web_browser_browse_and_ingredient_shop(self):
+        from pathlib import Path
+        from PIL import Image
+
+        # 1. Lab engine registry lists web-browser [READY] and kit includes web_capture.py.
+        eng_out = run_cli(REVA_LAB_PY, self.ws, "engines", lab_dir=self.lab_dir)
+        self.assertIn("[READY  ] web-browser", eng_out.stdout)
+        kit_out = run_cli(REVA_LAB_PY, self.ws, "kit", lab_dir=self.lab_dir)
+        self.assertIn("web_capture.py", kit_out.stdout)
+
+        # 2. web_capture gate & media link extractor work cleanly.
+        kit_dir = os.path.join(REPO, "lab", "kit")
+        if kit_dir not in sys.path:
+            sys.path.insert(0, kit_dir)
+        import web_capture
+
+        self.assertTrue(web_capture.detect_captcha_or_gate("<html><title>Just a moment...</title><div class='cf-turnstile'></div></html>"))
+        self.assertEqual(web_capture.detect_captcha_or_gate("<html><body>Clean Engineering Docs</body></html>"), "")
+        links = web_capture.extract_media_links(
+            '<img src="img/hook.svg"><a href="spec.pdf">Spec</a><a href="part.glb">3D</a><a href="data.csv">CSV</a>',
+            base_url="https://example.org/docs/page.html",
+        )
+        self.assertIn("https://example.org/docs/img/hook.svg", links["images"])
+        self.assertIn("https://example.org/docs/spec.pdf", links["documents"])
+        self.assertIn("https://example.org/docs/part.glb", links["models3d"])
+        self.assertIn("https://example.org/docs/data.csv", links["datasets"])
+
+        # 3. Live headless Edge/Chrome JS DOM + screenshot via `reva research browse`.
+        run_cli(REVA_PY, self.ws, "code", "scrape", "browse-study", self.short_mp4, lab_dir=self.lab_dir)
+        run_cli(REVA_PY, self.ws, "transcribe", "browse-study", "--silent", lab_dir=self.lab_dir)
+        sdir = os.path.join(self.ws, "browse-study")
+
+        js_html = os.path.join(self.tmp.name, "dynamic_sni.html")
+        with open(js_html, "w", encoding="utf-8") as fp:
+            fp.write(
+                "<!doctype html><html><head><title>Dynamic Spec Page</title></head>"
+                "<body><div id='app'>Loading...</div>"
+                "<script>"
+                "document.getElementById('app').innerHTML = "
+                "'<p>SNI 2847 dynamic 135 deg hook requires 6d and 75 mm inside core concrete.</p>"
+                "<img src=\"diagram.svg\"><a href=\"model.glb\">GLB</a><a href=\"metrics.csv\">CSV</a>';"
+                "</script></body></html>"
+            )
+        file_url = Path(js_html).resolve().as_uri()
+        br_out = run_cli(
+            REVA_PY, self.ws, "research", "browse", "browse-study", file_url,
+            "--query", "135 deg hook core concrete", "--discover-links", lab_dir=self.lab_dir,
+        )
+        self.assertIn("SNI 2847 dynamic 135 deg hook", br_out.stdout)
+        self.assertIn("screenshot", br_out.stdout)
+        self.assertIn("links[models3d]", br_out.stdout)
+        self.assertTrue(os.path.exists(os.path.join(sdir, "research", "assets", "dynamic_sni.txt")))
+        self.assertTrue(os.path.exists(os.path.join(sdir, "research", "assets", "dynamic_sni.png")))
+
+        # 4. 6-aisle ingredient shop offline + optional asset download.
+        import research as mod_research
+        dl_png = os.path.join(self.tmp.name, "shop_diag.png")
+        Image.new("RGB", (200, 140), (230, 240, 245)).save(dl_png)
+        dl_uri = Path(dl_png).resolve().as_uri()
+        orig_map = dict(mod_research._AISLE_MAP)
+        try:
+            mod_research._AISLE_MAP.update({
+                "docs": lambda q, max_results=5: [{"aisle": "docs", "kind": "paper", "title": "arXiv RC Hook", "url": "https://arxiv.org/abs/1", "download_url": "", "license": "arXiv", "provider": "arxiv", "snippet": "hook paper"}],
+                "images": lambda q, max_results=5: [{"aisle": "images", "kind": "image", "title": "Shop Diagram", "url": dl_uri, "download_url": dl_uri, "license": "CC0", "provider": "wikimedia", "snippet": "diagram"}],
+                "footage": lambda q, max_results=5: [{"aisle": "footage", "kind": "footage", "title": "Archive Pour Clip", "url": "https://archive.org/details/x", "download_url": "", "license": "PD", "provider": "internet-archive", "snippet": "clip"}],
+                "audio": lambda q, max_results=5: [{"aisle": "audio", "kind": "audio", "title": "Hammer CC", "url": "https://openverse.org/a", "download_url": "", "license": "CC-BY", "provider": "openverse-audio", "snippet": "sfx"}],
+                "models3d": lambda q, max_results=5: [{"aisle": "models3d", "kind": "model3d", "title": "Column GLB", "url": "https://sketchfab.com/m", "download_url": "", "license": "CC-BY", "provider": "sketchfab", "snippet": "3d"}],
+                "data": lambda q, max_results=5: [{"aisle": "data", "kind": "dataset", "title": "Jakarta OSM", "url": "https://osm.org/r/1", "download_url": "", "license": "ODbL", "provider": "nominatim", "snippet": "lat/lon"}],
+            })
+            sh_res = mod_research.shop_ingredients(sdir, "stirrup concrete", aisle="all", max_results=2, download=1)
+        finally:
+            mod_research._AISLE_MAP.update(orig_map)
+
+        self.assertEqual(len(sh_res["items"]), 6)
+        self.assertEqual(len(sh_res["downloaded"]), 1)
+        self.assertTrue(os.path.exists(os.path.join(sdir, sh_res["downloaded"][0]["local_asset"])))
+
 
 if __name__ == "__main__":
     unittest.main()

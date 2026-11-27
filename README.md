@@ -4,7 +4,8 @@ An **Engineering Lab** and video reverse-engineering toolkit for Kiro Crew, Code
 
 | Tool / Skill | Purpose | Target |
 |---|---|---|
-| **[`reva-lab`](skills/reva-lab/SKILL.md)** (`reva_lab.py` / `reva-lab.cmd`) | **Engineering Lab** — probe available engines, register new code-callable tools, search & reuse proven cross-video patterns (`lab/library.json`), recommend candidate tools | `lab/engines.json` & `lab/library.json` |
+| **[`reva-lab`](skills/reva-lab/SKILL.md)** (`reva_lab.py` / `reva-lab.cmd`) | **Engineering Lab** — probe available engines (`11`), inspect shared `lab/kit/`, search & reuse structured-code patterns (`lab/patterns/`) | `lab/engines.json`, `lab/kit/` & `lab/library.json` |
+| **[`reva-browse`](skills/reva-browse/SKILL.md)** (`reva.py research browse\|shop`) | **Web Browse & Ingredient Sourcer** — headless Edge/Chrome JS DOM + screenshot capture and 6-aisle external asset shop (`docs`, `images`, `footage`, `audio`, `models3d`, `data`) | `research/assets/` & `research/brief.{json,md}` |
 | **[`reva-code`](skills/reva-code/SKILL.md)** (`reva_code.py` / `reva-code.cmd`) | **Pure coding skills** — `--grid` px rulers, 5 fps motion strips, hex palettes, stereo L-R SFX, test-bench bake-offs (`bench`, `compare --tool`, `verdict`), `verify --promote`, Branch 1 export | [`Exeloxylade/video-making-skills`](https://github.com/Exeloxylade/video-making-skills) (Branch 1) |
 | **[`reva-style`](skills/reva-style/SKILL.md)** (`reva_style.py` / `reva-style.cmd`) | **Prompt-style cloning** — cut cadence, still-vs-moving ratio, WPM, palette, 8 golden beats, `<id>.style.json` scaffold, local dry-run `check`, CLI delivery & promotion | `Automated-Lunch-Free` CLI (`styles/<id>/`) |
 
@@ -23,6 +24,8 @@ An **Engineering Lab** and video reverse-engineering toolkit for Kiro Crew, Code
 python reva.py transcribe my-study [--from-file subs.srt | --silent]
 python reva.py research init my-study
 python reva.py research auto my-study
+python reva.py research shop my-study "concrete stirrup" --aisle all --download 1
+python reva.py research browse my-study "https://..." --query "seismic hook 135" --discover-links
 python reva.py research claims my-study
 python reva.py research search my-study "query terms"
 python reva.py research images my-study "stirrup rebar concrete" --download 1

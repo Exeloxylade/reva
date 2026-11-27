@@ -444,6 +444,66 @@ def run_research(root, study, a, focus="all"):
         print(f"  next   inspect {research.brief_md_path(s_dir)}, add --mechanism/--specs/--must-show concepts, then `reva research complete {study}`")
         return res
 
+    if rcmd == "browse":
+        res = research.browse_source(
+            s_dir,
+            a.url,
+            title=getattr(a, "title", ""),
+            kind=getattr(a, "kind", "article"),
+            query=getattr(a, "query", ""),
+            screenshot=not getattr(a, "no_screenshot", False),
+            width=getattr(a, "width", 1440),
+            height=getattr(a, "height", 1600),
+            discover_links=getattr(a, "discover_links", False),
+        )
+        refresh_dossier(root, study, focus=focus)
+        if res.get("blocked_by_gate"):
+            print(f"=== BROWSE BLOCKED ({res['url']}) ===")
+            print(f"  gate   {res.get('reason')}")
+            return res
+        if not res.get("ok"):
+            raise SystemExit(f"browse failed: {res.get('reason')}")
+        print(f"=== BROWSED JS SOURCE: {res['title']} ===")
+        print(f"  url        {res['url']}")
+        if res.get("local_asset"):
+            print(f"  text       {res['local_asset']}")
+        if res.get("screenshot_asset"):
+            print(f"  screenshot {res['screenshot_asset']}")
+        if res.get("specs"):
+            print(f"  specs      {', '.join(res['specs'][:8])}")
+        for idx, ex in enumerate(res.get("excerpts") or [], 1):
+            print(f"  [{idx}] {ex}")
+        if getattr(a, "discover_links", False):
+            links = res.get("media_links") or {}
+            for bucket, urls in links.items():
+                if urls:
+                    print(f"  links[{bucket}] ({len(urls)}): {', '.join(urls[:3])}")
+        return res
+
+    if rcmd == "shop":
+        res = research.shop_ingredients(
+            s_dir,
+            a.query,
+            aisle=getattr(a, "aisle", "all"),
+            max_results=getattr(a, "max_results", 5),
+            download=getattr(a, "download", 0),
+        )
+        if res.get("downloaded"):
+            refresh_dossier(root, study, focus=focus)
+        print(f"=== INGREDIENT SHOP [{res['aisle']}] ({len(res['items'])} hits) ===")
+        for idx, it in enumerate(res["items"], 1):
+            lic = f" [{it['license']}]" if it.get("license") else ""
+            dl = f" | dl: {it['download_url']}" if it.get("download_url") else ""
+            print(f"  {idx}. [{it['aisle']}/{it['provider']}] {it['title']}{lic}")
+            print(f"     url: {it['url']}{dl}")
+            if it.get("snippet"):
+                print(f"     {it['snippet'][:180]}")
+        for d in res.get("downloaded") or []:
+            print(f"  [saved] {d['title']} -> {d['local_asset']}")
+        for er in res.get("errors") or []:
+            print(f"  [warn ] {er}")
+        return res
+
     raise SystemExit(f"unknown research subcommand {rcmd!r}")
 
 
@@ -503,6 +563,25 @@ def add_brain_subparsers(sub):
     p.add_argument("url")
     p.add_argument("--title", default="")
     p.add_argument("--kind", default="article", choices=list(research.VALID_KINDS))
+    p.add_argument("--query", default="", help="rank extracted paragraphs by keyword relevance to this query")
+
+    p = rsub.add_parser("browse", help="render a JS page via headless Edge/Chrome, screenshot & discover media links")
+    p.add_argument("study")
+    p.add_argument("url")
+    p.add_argument("--title", default="")
+    p.add_argument("--kind", default="article", choices=list(research.VALID_KINDS))
+    p.add_argument("--query", default="", help="rank extracted DOM paragraphs by keyword relevance")
+    p.add_argument("--no-screenshot", action="store_true", help="skip PNG capture of rendered page")
+    p.add_argument("--width", type=int, default=1440)
+    p.add_argument("--height", type=int, default=1600)
+    p.add_argument("--discover-links", action="store_true", help="print extracted image/PDF/MP4/GLB/CSV/MP3 asset links")
+
+    p = rsub.add_parser("shop", help="source external ingredients across 6 aisles (docs, images, footage, audio, models3d, data)")
+    p.add_argument("study")
+    p.add_argument("query")
+    p.add_argument("--aisle", default="all", choices=list(research.VALID_AISLES))
+    p.add_argument("--max-results", type=int, default=5)
+    p.add_argument("--download", type=int, default=0, help="download top N items with direct URLs into research/assets/")
     p.add_argument("--query", default="", help="rank extracted paragraphs by keyword relevance to this query")
 
     p = rsub.add_parser("add-concept", help="record learned term + physical mechanism/specs + visual anatomy & must-show rules")

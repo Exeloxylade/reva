@@ -10,7 +10,7 @@ description: "BRANCH 2C - REVA Engineering Lab (Extensible Engine Registry, Mult
 
 The Engineering Lab connects reference video measurements **and subject research** to **actual runnable tools** on your machine and compounds both visual learnings AND **actual structured code** across videos so Video 2's bench bootstraps straight from Video 1's proven modules and snapshots (`threejs_schematic.js` `RevaCAD`, `manim_schematic.py`, `lab/patterns/<id>/`) instead of blank starter cubes.
 
-> Always run **Transcribe (`reva transcribe`) -> Internet Learning & Visual Anatomy (`reva research claims / search / images / fetch / add-concept --mechanism --specs --anatomy --must-show`) -> `research complete`** before `recommend` and `bench`, so `bench.json` receives `render_mode: schematic-clay-first`, `anatomy_specs` (`mechanism` + `specs`), and `checklist.json` enforces every visual requirement before `verify`. Keep bench rigs schematic/clay-first with zero texture polish waste.
+> Always run **Transcribe (`reva transcribe`) -> Internet Learning & Ingredient Sourcing (`reva research auto` / `shop` / `browse` -> `add-concept --mechanism --specs --anatomy --must-show` -> `complete`)** before `recommend` and `bench`. Use `web-browser` / [`reva-browse`](../reva-browse/SKILL.md) whenever you need JS-rendered docs, diagrams, footage, CC audio, 3D reference models, or datasets from outside. Keep bench rigs schematic/clay-first with zero texture polish waste.
 
 ---
 

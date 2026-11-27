@@ -15,8 +15,10 @@ import mimetypes
 import os
 import re
 import shutil
+import sys
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from collections import Counter
 
 try:
@@ -24,7 +26,8 @@ try:
 except ImportError:
     import _common as C
 
-VALID_KINDS = ("article", "document", "image", "footage", "standard", "paper", "dataset", "other")
+VALID_KINDS = ("article", "document", "image", "footage", "audio", "model3d", "standard", "paper", "dataset", "other")
+VALID_AISLES = ("all", "docs", "images", "footage", "audio", "models3d", "data")
 
 _STOPWORDS = {
     # English
@@ -977,6 +980,423 @@ def fetch_source(study_dir, url, *, title="", kind="article", query="", max_char
         "is_binary": False,
         "excerpts": excerpts,
         "specs": specs,
+    }
+
+
+def _load_web_capture():
+    """Import shared lab/kit/web_capture.py without brittle sys.path assumptions."""
+    candidates = [
+        os.path.join(C.lab_dir(), "kit"),
+        os.path.join(C.REPO_ROOT, "lab", "kit"),
+    ]
+    for kd in candidates:
+        if os.path.isfile(os.path.join(kd, "web_capture.py")):
+            if kd not in sys.path:
+                sys.path.insert(0, kd)
+            import web_capture
+            return web_capture
+    raise ImportError("lab/kit/web_capture.py not found")
+
+
+def browse_source(
+    study_dir,
+    url,
+    *,
+    title="",
+    kind="article",
+    query="",
+    screenshot=True,
+    width=1440,
+    height=1600,
+    discover_links=False,
+    max_chars=24000,
+):
+    """Render a JS-driven URL via headless browser, cache DOM text + optional PNG screenshot, and log source."""
+    clean_url = (url or "").strip()
+    if not clean_url:
+        raise ValueError("browse requires non-empty URL")
+    wc = _load_web_capture()
+    adir = assets_dir(study_dir)
+    os.makedirs(adir, exist_ok=True)
+
+    parsed = urllib.parse.urlparse(clean_url)
+    raw_base = os.path.splitext(os.path.basename(urllib.parse.unquote(parsed.path or "")))[0] or parsed.netloc or "browsed"
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", title or raw_base).strip("-").lower()[:48] or "browsed"
+
+    res = wc.browse_url(
+        clean_url,
+        out_dir=adir,
+        screenshot=screenshot,
+        width=width,
+        height=height,
+        slug=slug,
+    )
+    if not res.get("ok"):
+        return {
+            "ok": False,
+            "blocked_by_gate": bool(res.get("blocked_by_gate")),
+            "reason": res.get("reason") or "browse failed",
+            "url": clean_url,
+            "title": title or slug,
+            "local_asset": "",
+            "screenshot_asset": "",
+            "excerpts": [],
+            "specs": [],
+            "media_links": res.get("media_links") or {},
+        }
+
+    parser = _HTMLTextExtractor()
+    parser.feed(res.get("dom_html") or "")
+    parser.close()
+    page_title, clean_body = parser.extract()
+    if len(clean_body) > max_chars:
+        clean_body = clean_body[:max_chars]
+
+    dst_txt = os.path.join(adir, f"{slug}.txt")
+    final_title = _clean_text(title) or page_title or raw_base or slug
+    with open(dst_txt, "w", encoding="utf-8") as fp:
+        fp.write(f"URL: {clean_url}\nTitle: {final_title}\nBrowser: {res.get('browser', '')}\n\n{clean_body}\n")
+
+    specs = _dedupe([m.group(0) for pat in _SPEC_PATTERNS for m in pat.finditer(clean_body)])[:12]
+    paras = [p.strip() for p in re.split(r"\n{2,}", clean_body) if len(p.strip()) >= 30]
+    q_tokens = {w.lower() for w in re.findall(r"[A-Za-z0-9]{3,}", query or "") if w.lower() not in _STOPWORDS}
+    if q_tokens and paras:
+        scored = sorted(enumerate(paras), key=lambda iv: (-sum(1 for t in q_tokens if t in iv[1].lower()), iv[0]))
+        excerpts = [_clean_text(p)[:340] for _, p in scored[:5]]
+    else:
+        excerpts = [_clean_text(p)[:340] for p in paras[:5]]
+    if not excerpts and clean_body:
+        excerpts = [_clean_text(clean_body)[:340]]
+
+    takeaway = excerpts[0][:240] if excerpts else "Rendered JS webpage via headless browser."
+    if specs and len(takeaway) < 180:
+        takeaway += f" [Specs: {', '.join(specs[:5])}]"
+    rel_txt = os.path.relpath(dst_txt, study_dir).replace("\\", "/")
+    add_source(study_dir, final_title, kind=kind, url=clean_url, takeaway=takeaway, local_asset=dst_txt)
+
+    rel_shot = ""
+    shot_path = res.get("screenshot_path") or ""
+    if shot_path and os.path.exists(shot_path):
+        rel_shot = os.path.relpath(shot_path, study_dir).replace("\\", "/")
+        add_source(
+            study_dir,
+            f"{final_title} (rendered screenshot)",
+            kind="image",
+            url=clean_url,
+            takeaway=f"Visual screenshot captured at {width}x{height} via headless browser.",
+            local_asset=shot_path,
+        )
+
+    return {
+        "ok": True,
+        "blocked_by_gate": False,
+        "url": clean_url,
+        "title": final_title,
+        "local_asset": rel_txt,
+        "screenshot_asset": rel_shot,
+        "excerpts": excerpts,
+        "specs": specs,
+        "media_links": res.get("media_links") or {} if discover_links else res.get("media_links") or {},
+    }
+
+
+def _shop_docs(query, max_results=5):
+    items = []
+    for h in web_search(query, max_results=max_results):
+        items.append({
+            "aisle": "docs",
+            "kind": "paper" if h.get("provider") == "openalex" else "article",
+            "title": h.get("title") or h.get("url"),
+            "url": h.get("url") or "",
+            "download_url": "",
+            "license": "web",
+            "provider": h.get("provider") or "web",
+            "snippet": h.get("snippet") or "",
+        })
+    if len(items) < max_results + 2:
+        try:
+            u = f"https://export.arxiv.org/api/query?search_query=all:{urllib.parse.quote(query)}&max_results=3"
+            req = urllib.request.Request(u, headers={"User-Agent": _USER_AGENT})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                xml_raw = resp.read().decode("utf-8", errors="replace")
+            root = ET.fromstring(xml_raw)
+            ns = {"a": "http://www.w3.org/2005/Atom"}
+            for entry in root.findall("a:entry", ns):
+                t_el = entry.find("a:title", ns)
+                id_el = entry.find("a:id", ns)
+                sum_el = entry.find("a:summary", ns)
+                pdf_url = ""
+                for lk in entry.findall("a:link", ns):
+                    if lk.attrib.get("title") == "pdf" or lk.attrib.get("type") == "application/pdf":
+                        pdf_url = lk.attrib.get("href") or ""
+                if id_el is not None and id_el.text:
+                    items.append({
+                        "aisle": "docs",
+                        "kind": "paper",
+                        "title": _clean_text(t_el.text if t_el is not None else "arXiv preprint"),
+                        "url": id_el.text.strip(),
+                        "download_url": pdf_url,
+                        "license": "arXiv",
+                        "provider": "arxiv",
+                        "snippet": _clean_text(sum_el.text if sum_el is not None else "")[:260],
+                    })
+        except Exception:
+            pass
+    return items[:max_results]
+
+
+def _shop_images(query, max_results=5):
+    items = []
+    for im in search_images(query, max_results=max_results):
+        items.append({
+            "aisle": "images",
+            "kind": "image",
+            "title": im.get("title") or "Wikimedia diagram",
+            "url": im.get("url") or "",
+            "download_url": im.get("url") or "",
+            "license": "Wikimedia/CC",
+            "provider": "wikimedia-commons",
+            "snippet": im.get("description") or f"{im.get('mime', '')} {im.get('width', '?')}x{im.get('height', '?')}",
+        })
+    if len(items) < max_results:
+        try:
+            ov = _fetch_json(
+                f"https://api.openverse.org/v1/images/?q={urllib.parse.quote(query)}&page_size={min(max_results, 4)}",
+                timeout=8,
+            )
+            for r in (ov or {}).get("results") or []:
+                items.append({
+                    "aisle": "images",
+                    "kind": "image",
+                    "title": _clean_text(r.get("title") or "Openverse image"),
+                    "url": r.get("foreign_landing_url") or r.get("url") or "",
+                    "download_url": r.get("url") or "",
+                    "license": f"CC-{r.get('license', '?')}".upper(),
+                    "provider": "openverse",
+                    "snippet": _clean_text(r.get("creator") or "Openverse CC image"),
+                })
+        except Exception:
+            pass
+    pexels_key = (os.environ.get("PEXELS_API_KEY") or "").strip()
+    if pexels_key and len(items) < max_results:
+        try:
+            px = _fetch_json(
+                f"https://api.pexels.com/v1/search?query={urllib.parse.quote(query)}&per_page={min(max_results, 4)}",
+                headers={"Authorization": pexels_key},
+                timeout=8,
+            )
+            for p in (px or {}).get("photos") or []:
+                items.append({
+                    "aisle": "images",
+                    "kind": "image",
+                    "title": _clean_text(p.get("alt") or f"Pexels photo {p.get('id')}"),
+                    "url": p.get("url") or "",
+                    "download_url": (p.get("src") or {}).get("large") or "",
+                    "license": "Pexels License",
+                    "provider": "pexels",
+                    "snippet": _clean_text(p.get("photographer") or "Pexels"),
+                })
+        except Exception:
+            pass
+    return items[:max_results]
+
+
+def _shop_footage(query, max_results=5):
+    items = []
+    try:
+        ia_q = f"mediatype:movies AND ({query})"
+        u = (
+            "https://archive.org/advancedsearch.php?q="
+            + urllib.parse.quote(ia_q)
+            + f"&fl[]=identifier,title,description&rows={min(max_results, 5)}&output=json"
+        )
+        data = _fetch_json(u, timeout=10)
+        for doc in ((data or {}).get("response") or {}).get("docs") or []:
+            ident = doc.get("identifier") or ""
+            if not ident:
+                continue
+            desc = doc.get("description")
+            if isinstance(desc, list):
+                desc = " ".join(map(str, desc))
+            items.append({
+                "aisle": "footage",
+                "kind": "footage",
+                "title": _clean_text(doc.get("title") or ident),
+                "url": f"https://archive.org/details/{ident}",
+                "download_url": "",
+                "license": "Internet Archive",
+                "provider": "internet-archive",
+                "snippet": _clean_text(desc or "Archival video item")[:240],
+            })
+    except Exception:
+        pass
+    pexels_key = (os.environ.get("PEXELS_API_KEY") or "").strip()
+    if pexels_key and len(items) < max_results:
+        try:
+            px = _fetch_json(
+                f"https://api.pexels.com/videos/search?query={urllib.parse.quote(query)}&per_page={min(max_results, 3)}",
+                headers={"Authorization": pexels_key},
+                timeout=8,
+            )
+            for v in (px or {}).get("videos") or []:
+                vfiles = sorted(v.get("video_files") or [], key=lambda x: int(x.get("width") or 0), reverse=True)
+                items.append({
+                    "aisle": "footage",
+                    "kind": "footage",
+                    "title": f"Pexels stock clip #{v.get('id')} ({v.get('duration')}s)",
+                    "url": v.get("url") or "",
+                    "download_url": vfiles[0].get("link") if vfiles else "",
+                    "license": "Pexels License",
+                    "provider": "pexels-video",
+                    "snippet": f"{v.get('width')}x{v.get('height')} {v.get('duration')}s",
+                })
+        except Exception:
+            pass
+    return items[:max_results]
+
+
+def _shop_audio(query, max_results=5):
+    items = []
+    try:
+        ov = _fetch_json(
+            f"https://api.openverse.org/v1/audio/?q={urllib.parse.quote(query)}&page_size={min(max_results, 5)}",
+            timeout=10,
+        )
+        for r in (ov or {}).get("results") or []:
+            items.append({
+                "aisle": "audio",
+                "kind": "audio",
+                "title": _clean_text(r.get("title") or "Openverse audio"),
+                "url": r.get("foreign_landing_url") or r.get("url") or "",
+                "download_url": r.get("url") or "",
+                "license": f"CC-{r.get('license', '?')}".upper(),
+                "provider": "openverse-audio",
+                "snippet": _clean_text(f"{r.get('creator') or ''} ({r.get('duration') or '?'} ms)"),
+            })
+    except Exception:
+        pass
+    return items[:max_results]
+
+
+def _shop_models3d(query, max_results=5):
+    items = []
+    try:
+        u = f"https://api.sketchfab.com/v3/search?type=models&downloadable=true&q={urllib.parse.quote(query)}&count={min(max_results, 5)}"
+        sf = _fetch_json(u, timeout=10)
+        for m in (sf or {}).get("results") or []:
+            lic = (m.get("license") or {}).get("label") or "Sketchfab downloadable"
+            items.append({
+                "aisle": "models3d",
+                "kind": "model3d",
+                "title": _clean_text(m.get("name") or "Sketchfab 3D model"),
+                "url": m.get("viewerUrl") or "",
+                "download_url": "",
+                "license": lic,
+                "provider": "sketchfab",
+                "snippet": _clean_text(f"verts={m.get('vertexCount', '?')} faces={m.get('faceCount', '?')}"),
+            })
+    except Exception:
+        pass
+    return items[:max_results]
+
+
+def _shop_data(query, max_results=5):
+    items = []
+    try:
+        u = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query)}&format=json&limit={min(max_results, 3)}"
+        nom = _fetch_json(u, timeout=8)
+        if isinstance(nom, list):
+            for hit in nom:
+                items.append({
+                    "aisle": "data",
+                    "kind": "dataset",
+                    "title": _clean_text(hit.get("display_name") or query),
+                    "url": f"https://www.openstreetmap.org/{hit.get('osm_type', 'node')}/{hit.get('osm_id', '')}",
+                    "download_url": "",
+                    "license": "ODbL (OSM)",
+                    "provider": "nominatim",
+                    "snippet": f"lat={hit.get('lat')}, lon={hit.get('lon')}, type={hit.get('type')}",
+                })
+    except Exception:
+        pass
+    try:
+        wb = _fetch_json("https://api.worldbank.org/v2/country/WLD/indicator/NY.GDP.MKTP.CD?format=json&per_page=2", timeout=8)
+        q_low = query.lower()
+        if isinstance(wb, list) and len(wb) >= 2 and any(k in q_low for k in ("gdp", "economy", "inflation", "trade", "data", "growth", "population")):
+            items.append({
+                "aisle": "data",
+                "kind": "dataset",
+                "title": "World Bank Open Indicators API (macro/socioeconomic CSV/JSON)",
+                "url": f"https://data.worldbank.org/indicator?tab=all&q={urllib.parse.quote(query)}",
+                "download_url": "",
+                "license": "CC-BY 4.0 (World Bank)",
+                "provider": "worldbank",
+                "snippet": "Macroeconomic, population, infrastructure & trade JSON/CSV time series",
+            })
+    except Exception:
+        pass
+    return items[:max_results]
+
+
+_AISLE_MAP = {
+    "docs": _shop_docs,
+    "images": _shop_images,
+    "footage": _shop_footage,
+    "audio": _shop_audio,
+    "models3d": _shop_models3d,
+    "data": _shop_data,
+}
+
+
+def shop_ingredients(study_dir, query, *, aisle="all", max_results=5, download=0):
+    """Search external ingredient aisles (docs, images, footage, audio, models3d, data) and optionally cache hits."""
+    q = _clean_text(query)
+    if not q:
+        raise ValueError("shop requires non-empty query")
+    clean_aisle = (aisle or "all").strip().lower()
+    if clean_aisle not in VALID_AISLES:
+        raise ValueError(f"unsupported aisle {aisle!r}; choose from {', '.join(VALID_AISLES)}")
+
+    record_search_query(study_dir, f"[{clean_aisle}] {q}")
+    aisles = list(_AISLE_MAP.keys()) if clean_aisle == "all" else [clean_aisle]
+    per_aisle = max(2, min(int(max_results), 5)) if clean_aisle == "all" else int(max_results)
+
+    items = []
+    errors = []
+    for a_name in aisles:
+        fn = _AISLE_MAP[a_name]
+        try:
+            items.extend(fn(q, max_results=per_aisle))
+        except Exception as exc:
+            errors.append(f"{a_name}: {exc}")
+
+    downloaded = []
+    dl_limit = max(0, int(download or 0))
+    if dl_limit > 0:
+        for it in items:
+            if len(downloaded) >= dl_limit:
+                break
+            dl_url = (it.get("download_url") or "").strip()
+            if not dl_url:
+                continue
+            try:
+                dl_res = fetch_source(
+                    study_dir,
+                    dl_url,
+                    title=it.get("title") or "",
+                    kind=it.get("kind") or "other",
+                    query=q,
+                )
+                downloaded.append(dl_res)
+            except Exception as exc:
+                errors.append(f"download({dl_url}): {exc}")
+
+    return {
+        "query": q,
+        "aisle": clean_aisle,
+        "items": items,
+        "downloaded": downloaded,
+        "errors": errors,
     }
 
 
