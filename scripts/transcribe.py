@@ -69,13 +69,20 @@ def _study_duration(study_dir, cues=None):
     return round(dur, 2)
 
 
+def _has_module(name):
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ModuleNotFoundError, ValueError):
+        return False
+
+
 def detect_backends():
     """Probe available transcription backends without requiring heavy optional installs."""
-    has_genai = importlib.util.find_spec("google.genai") is not None
+    has_genai = _has_module("google.genai")
     gemini_key = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
     return {
-        "faster-whisper": importlib.util.find_spec("faster_whisper") is not None,
-        "whisper": (importlib.util.find_spec("whisper") is not None) or bool(shutil.which("whisper")),
+        "faster-whisper": _has_module("faster_whisper"),
+        "whisper": _has_module("whisper") or bool(shutil.which("whisper")),
         "whisper-cli": bool(shutil.which("whisper-cli") or shutil.which("whisper-ctranslate2")),
         "gemini": bool(has_genai and gemini_key),
         "groq": bool(os.environ.get("GROQ_API_KEY")),

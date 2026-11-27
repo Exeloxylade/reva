@@ -112,7 +112,10 @@ def probe_engine(eng, lab_root=None):
     py_mod = probes.get("python_module")
     py_ok = None
     if py_mod:
-        py_ok = importlib.util.find_spec(py_mod) is not None
+        try:
+            py_ok = importlib.util.find_spec(py_mod) is not None
+        except (ModuleNotFoundError, ValueError):
+            py_ok = False
         checks.append(py_ok)
 
     app_dir = None
@@ -221,12 +224,15 @@ def register_engine(entry, lab_root=None):
 def _find_three_js():
     """Locate a local three.min.js build for offline headless Three.js benches."""
     home = os.path.expanduser("~")
+    appdata = os.environ.get("APPDATA") or ""
     cands = [
         os.environ.get("REVA_THREE_JS"),
         os.path.join(C.REPO_ROOT, "lab", "harnesses", "threejs-webgl", "three.min.js"),
         os.path.join(home, ".kiro", "crew", "skills", "gem-3d-world", "lib", "three.min.js"),
         os.path.join(C.REPO_ROOT, "node_modules", "three", "build", "three.min.js"),
     ]
+    if appdata:
+        cands.append(os.path.join(appdata, "npm", "node_modules", "three", "build", "three.min.js"))
     cands.extend(sorted(glob.glob(os.path.join(home, ".kiro", "crew", "workspace", "videos", "*", "lib", "three.min.js"))))
     for c in cands:
         if c and os.path.exists(c):
