@@ -5,6 +5,7 @@ An **Engineering Lab** and video reverse-engineering toolkit for Kiro Crew, Code
 | Tool / Skill | Purpose | Target |
 |---|---|---|
 | **[`reva-lab`](skills/reva-lab/SKILL.md)** (`reva_lab.py` / `reva-lab.cmd`) | **Engineering Lab** — probe available engines (`11`), inspect shared `lab/kit/`, search & reuse structured-code patterns (`lab/patterns/`) | `lab/engines.json`, `lab/kit/` & `lab/library.json` |
+| **[`cozy-3d-explainer`](skills/cozy-3d-explainer/SKILL.md)** | **General 3D Explainer Style** — topic-agnostic Cozy Blender-Matte + 16-tap GTAO + silhouette ink + Fresnel cutaways + HUD guide | Any `threejs-webgl` scene (`RevaCanvas` + `RevaPBR`) |
 | **[`reva-browse`](skills/reva-browse/SKILL.md)** (`reva.py research browse\|shop`) | **Web Browse & Ingredient Sourcer** — headless Edge/Chrome JS DOM + screenshot capture and 6-aisle external asset shop (`docs`, `images`, `footage`, `audio`, `models3d`, `data`) | `research/assets/` & `research/brief.{json,md}` |
 | **[`reva-code`](skills/reva-code/SKILL.md)** (`reva_code.py` / `reva-code.cmd`) | **Pure coding skills** — `--grid` px rulers, 5 fps motion strips, hex palettes, stereo L-R SFX, test-bench bake-offs (`bench`, `compare --tool`, `verdict`), `verify --promote`, Branch 1 export | [`Exeloxylade/video-making-skills`](https://github.com/Exeloxylade/video-making-skills) (Branch 1) |
 | **[`reva-style`](skills/reva-style/SKILL.md)** (`reva_style.py` / `reva-style.cmd`) | **Prompt-style cloning** — cut cadence, still-vs-moving ratio, WPM, palette, 8 golden beats, `<id>.style.json` scaffold, local dry-run `check`, CLI delivery & promotion | `Automated-Lunch-Free` CLI (`styles/<id>/`) |
@@ -72,7 +73,7 @@ python reva_style.py deliver my-study --promote
 
 | File | Job |
 |---|---|
-| [`SKILL.md`](SKILL.md) | Router directing to [`skills/reva-lab/SKILL.md`](skills/reva-lab/SKILL.md), [`skills/reva-code/SKILL.md`](skills/reva-code/SKILL.md), and [`skills/reva-style/SKILL.md`](skills/reva-style/SKILL.md) |
+| [`SKILL.md`](SKILL.md) | Router directing to [`skills/reva-lab/SKILL.md`](skills/reva-lab/SKILL.md), [`skills/cozy-3d-explainer/SKILL.md`](skills/cozy-3d-explainer/SKILL.md), [`skills/reva-code/SKILL.md`](skills/reva-code/SKILL.md), and [`skills/reva-style/SKILL.md`](skills/reva-style/SKILL.md) |
 | [`reva_lab.py`](reva_lab.py) / [`reva-lab.cmd`](reva-lab.cmd) | Engineering Lab CLI (`engines`, `register`, `harnesses`, `recommend`, `library`, `promote`, `promote-style`, `sync-app`) |
 | [`reva_code.py`](reva_code.py) / [`reva-code.cmd`](reva-code.cmd) | Pure coding & test-bench CLI (`add`, `bench`, `reuse`, `stills --grid`, `colors`, `sound`, `compare --tool`, `verdict`, `verify --promote`, `skill`) |
 | [`reva_style.py`](reva_style.py) / [`reva-style.cmd`](reva-style.cmd) | Prompt-style cloning CLI (`scrape`, `beats`, `scaffold`, local dry-run `check`, `deliver`) |

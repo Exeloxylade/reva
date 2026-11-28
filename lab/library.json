@@ -798,6 +798,67 @@
         "beton-fb-test"
       ],
       "updated_at": "2026-11-27"
+    },
+    {
+      "id": "cozy-3d-explainer-style",
+      "category": "3d-explainer-style",
+      "tags": [
+        "3d-explainer",
+        "cozy-3d",
+        "blender-style",
+        "threejs-webgl",
+        "general-style",
+        "diorama",
+        "gtao",
+        "silhouette-ink",
+        "fresnel-cutaway",
+        "vertical-9x16",
+        "continuous-camera",
+        "hud"
+      ],
+      "winning_engine": "threejs-webgl",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "skills/cozy-3d-explainer/SKILL.md",
+      "template": "skills/cozy-3d-explainer/SKILL.md",
+      "summary": "General topic-agnostic Cozy 3D Explainer style guide (16-tap Depth GTAO, silhouette ink, Fresnel X-ray cutaways, continuous-camera arc, and reference-calibrated PBR + HUD) built on RevaCanvas + RevaPBR",
+      "code_dir": "",
+      "code_files": [
+        "lab/kit/threejs_canvas.js",
+        "lab/kit/threejs_pbr_materials.js",
+        "lab/kit/threejs_schematic.js"
+      ],
+      "code_symbols": [
+        "RevaCanvas.boot",
+        "RevaCanvas.createMinimalHud",
+        "RevaCanvas.buildCozyGrassDiorama",
+        "RevaCanvas.markNoInk",
+        "RevaPBR.createConcreteCoverGlassMaterial",
+        "RevaPBR.createStirrupSteelMaterial",
+        "RevaPBR.buildBeveledBox",
+        "RevaPBR.buildFracturedChunk",
+        "RevaPBR.buildWorkerFigure"
+      ],
+      "code_libraries": [
+        "three.min.js"
+      ],
+      "baseline": {
+        "aspect_ratio": "9:16",
+        "fps": 30.0,
+        "cuts_per_min": 0.0,
+        "audio_lufs": -14.11,
+        "palette": [
+          "#c8c8c2",
+          "#9fcc70",
+          "#b7b9b6",
+          "#d6dfdf",
+          "#785f49"
+        ]
+      },
+      "used_in": [
+        "beton-fb-test"
+      ],
+      "updated_at": "2026-11-28"
     }
   ]
 }
