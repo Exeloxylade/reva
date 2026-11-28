@@ -753,6 +753,51 @@
         "beton-fb-test"
       ],
       "updated_at": "2026-11-26"
+    },
+    {
+      "id": "sni-formwork-cover-schematic",
+      "category": "3d-explainer",
+      "tags": [
+        "3d",
+        "cutaway",
+        "schematic",
+        "concrete-cover",
+        "sni-2847",
+        "3d-explainer",
+        "formwork-cover",
+        "formwork",
+        "cover",
+        "sni-formwork-cover-schematic",
+        "sni",
+        "threejs-webgl"
+      ],
+      "winning_engine": "threejs-webgl",
+      "secondary_engines": [],
+      "rejected_engines": [],
+      "target_skill": "",
+      "template": "",
+      "summary": "Verified formwork-cover technique from beton-fb-test using threejs-webgl (Verified full v4 video against reference on formwork-cover/compare_v4.jpg)",
+      "code_dir": "",
+      "code_files": [],
+      "code_symbols": [],
+      "code_libraries": [],
+      "baseline": {
+        "window_sec": "99.0-112.0",
+        "aspect_ratio": "9:16",
+        "fps": 30.0,
+        "wpm": 130,
+        "palette": [
+          "#c8c8c2",
+          "#9fcc70",
+          "#b7b9b6",
+          "#d6dfdf"
+        ],
+        "verify_note": "Verified full v4 video against reference on formwork-cover/compare_v4.jpg"
+      },
+      "used_in": [
+        "beton-fb-test"
+      ],
+      "updated_at": "2026-11-27"
     }
   ]
 }

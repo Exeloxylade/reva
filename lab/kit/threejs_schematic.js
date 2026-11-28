@@ -16,6 +16,22 @@
     coverGrey: 0xcbd5e1,
     spall: 0x94a3b8,
     floor: 0xdbe3ea,
+    beamA: 0x2563eb,
+    beamB: 0xea580c,
+    dowel: 0xd97706,
+    brick: 0xc85a3a,
+    brickAlt: 0xb64c2e,
+    mortar: 0xdcd7cf,
+    formwork: 0xe6c896,
+    decking: 0xf8fafc,
+    soil: 0x8d6748,
+    soilDark: 0x6b4b32,
+    rust: 0xb45309,
+    stressHot: 0xef4444,
+    stressWarn: 0xf59e0b,
+    zoneSafe: 0x16a34a,
+    coverBlue: 0x38bdf8,
+    wire: 0x64748b,
   };
 
   function V(x, y, z) {
@@ -114,7 +130,47 @@
       mkSvg("path", { d: `M ${cP.x} ${cP.y} L ${x0} ${y0} A ${radiusPx} ${radiusPx} 0 0 ${sweepFlag} ${x1} ${y1} Z`, fill, stroke, "stroke-width": 4.5 });
       return { cP, p0, p1 };
     }
-    return { clear, proj, mkSvg, chip, bracket, angleSector };
+    function polyline(pts3d, stroke = "#ef4444", width = 4.5, fill = "none", dash = "", opacity = 1) {
+      if (!pts3d || pts3d.length < 2) return null;
+      const coords = pts3d.map((pt) => {
+        const s = proj(pt);
+        return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;
+      }).join(" ");
+      const attrs = { points: coords, stroke, "stroke-width": width, fill, "stroke-linejoin": "round", "stroke-linecap": "round", opacity };
+      if (dash) attrs["stroke-dasharray"] = dash;
+      return mkSvg("polyline", attrs);
+    }
+    function polygon(pts3d, stroke = "#ef4444", width = 3.5, fill = "rgba(239,68,68,0.22)", opacity = 1) {
+      if (!pts3d || pts3d.length < 3) return null;
+      const coords = pts3d.map((pt) => {
+        const s = proj(pt);
+        return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;
+      }).join(" ");
+      return mkSvg("polygon", { points: coords, stroke, "stroke-width": width, fill, "stroke-linejoin": "round", opacity });
+    }
+    function arrow(p1, p2, colorHex = "#dc2626", width = 5, headSize = 18) {
+      const a = proj(p1), b = proj(p2);
+      const ang = Math.atan2(b.y - a.y, b.x - a.x);
+      mkSvg("line", { x1: a.x.toFixed(1), y1: a.y.toFixed(1), x2: b.x.toFixed(1), y2: b.y.toFixed(1), stroke: colorHex, "stroke-width": width, "stroke-linecap": "round" });
+      const hx1 = b.x - Math.cos(ang - 0.45) * headSize, hy1 = b.y - Math.sin(ang - 0.45) * headSize;
+      const hx2 = b.x - Math.cos(ang + 0.45) * headSize, hy2 = b.y - Math.sin(ang + 0.45) * headSize;
+      mkSvg("polygon", { points: `${b.x.toFixed(1)},${b.y.toFixed(1)} ${hx1.toFixed(1)},${hy1.toFixed(1)} ${hx2.toFixed(1)},${hy2.toFixed(1)}`, fill: colorHex });
+      return { a, b };
+    }
+    function badge(pt, text, cls = "blue", dx = 0, dy = 0, leader = false) {
+      const s = proj(pt), cx = s.x + dx, cy = s.y + dy;
+      if (leader) {
+        mkSvg("line", { x1: s.x.toFixed(1), y1: s.y.toFixed(1), x2: cx.toFixed(1), y2: cy.toFixed(1), stroke: "#1e293b", "stroke-width": 3, "stroke-linecap": "round" });
+        mkSvg("circle", { cx: s.x.toFixed(1), cy: s.y.toFixed(1), r: 5.5, fill: "#fff", stroke: "#1d4ed8", "stroke-width": 3 });
+      }
+      const el = document.createElement("div");
+      el.className = ("chip badge-circle " + cls).trim();
+      el.textContent = text;
+      el.style.transform = `translate(-50%, -50%) translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
+      chips.appendChild(el);
+      return el;
+    }
+    return { clear, proj, mkSvg, chip, bracket, angleSector, polyline, polygon, arrow, badge };
   }
 
   function boot(opts = {}) {
@@ -286,6 +342,218 @@
     return m;
   }
 
+  function buildBentBar(pts, r, mat, segs = 48) {
+    const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.08);
+    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, r, 12, false), mat || clay(PALETTE.mainBar));
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+
+  function buildFilletHookBar(pStart, pCorner, pEnd, r, bendR, mat, segs = 48) {
+    const vIn = pStart.clone().sub(pCorner);
+    const vOut = pEnd.clone().sub(pCorner);
+    const lenIn = vIn.length(), lenOut = vOut.length();
+    const dIn = vIn.clone().normalize(), dOut = vOut.clone().normalize();
+    const rUse = Math.min(bendR, lenIn * 0.45, lenOut * 0.45);
+    const pA = pCorner.clone().addScaledVector(dIn, rUse);
+    const pB = pCorner.clone().addScaledVector(dOut, rUse);
+    const pts = [pStart.clone(), pStart.clone().lerp(pA, 0.5), pA];
+    for (let i = 1; i <= 7; i++) {
+      const u = i / 8, om = 1 - u;
+      pts.push(V(
+        om * om * pA.x + 2 * om * u * pCorner.x + u * u * pB.x,
+        om * om * pA.y + 2 * om * u * pCorner.y + u * u * pB.y,
+        om * om * pA.z + 2 * om * u * pCorner.z + u * u * pB.z
+      ));
+    }
+    pts.push(pB, pB.clone().lerp(pEnd, 0.5), pEnd.clone());
+    return buildBentBar(pts, r, mat, segs);
+  }
+
+  function buildSimpleRectHoop(cx, cz, rMain, rS, mat) {
+    const R = rMain + rS;
+    const pts = [];
+    const corners = [
+      [cx, cz, 0, Math.PI * 0.5],
+      [-cx, cz, Math.PI * 0.5, Math.PI],
+      [-cx, -cz, Math.PI, Math.PI * 1.5],
+      [cx, -cz, -Math.PI * 0.5, 0],
+    ];
+    for (const [x0, z0, a0, a1] of corners) {
+      for (let i = 0; i <= 5; i++) {
+        const a = a0 + (a1 - a0) * (i / 5);
+        pts.push(V(x0 + Math.cos(a) * R, 0, z0 + Math.sin(a) * R));
+      }
+    }
+    const curve = new THREE.CatmullRomCurve3(pts, true, "catmullrom", 0.08);
+    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 64, rS, 10, true), mat || clay(PALETTE.ok));
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+
+  function buildColumnCage(opts = {}) {
+    const c = opts.c != null ? opts.c : 0.42;
+    const h = opts.height != null ? opts.height : 4.8;
+    const rMain = opts.rMain != null ? opts.rMain : 0.055;
+    const rS = opts.rS != null ? opts.rS : 0.024;
+    const mainMat = opts.mainMat || clay(PALETTE.mainBar);
+    const stMat = opts.stirrupMat || clay(PALETTE.ok);
+    const ys = opts.stirrupYs || [0.3, 0.7, 1.1, 1.8, 2.4, 3.0, 3.7, 4.1, 4.5];
+    const grp = new THREE.Group();
+    const barGeo = new THREE.CylinderGeometry(rMain, rMain, h, 14);
+    for (const [bx, bz] of [[-c, -c], [c, -c], [c, c], [-c, c]]) {
+      addMesh(grp, barGeo, mainMat, bx, h / 2, bz);
+    }
+    const stirrups = [];
+    for (const y of ys) {
+      const m = opts.use135 ? buildStirrup135(c, rMain, rS, 5.2, stMat).mesh : buildSimpleRectHoop(c, c, rMain, rS, stMat);
+      m.position.y = y;
+      grp.add(m);
+      stirrups.push(m);
+    }
+    return { group: grp, stirrups };
+  }
+
+  function buildLapSpliceAssembly(opts = {}) {
+    const c = opts.c != null ? opts.c : 0.44;
+    const rMain = opts.rMain != null ? opts.rMain : 0.062;
+    const rS = opts.rS != null ? opts.rS : 0.026;
+    const lapBot = opts.lapBot != null ? opts.lapBot : 1.45;
+    const lapTop = opts.lapTop != null ? opts.lapTop : 3.25;
+    const totalH = opts.totalH != null ? opts.totalH : 5.2;
+    const lowMat = opts.lowerMat || clay(PALETTE.mainBar);
+    const upMat = opts.upperMat || clay(PALETTE.beamA);
+    const tieMat = opts.tieMat || clay(PALETTE.ok);
+
+    const grp = new THREE.Group();
+    const lowerGrp = new THREE.Group();
+    const upperGrp = new THREE.Group();
+    const tiesGrp = new THREE.Group();
+    grp.add(lowerGrp, upperGrp, tiesGrp);
+
+    const lowGeo = new THREE.CylinderGeometry(rMain, rMain, lapTop, 16);
+    const upLen = totalH - lapBot;
+    const upGeo = new THREE.CylinderGeometry(rMain, rMain, upLen, 16);
+    const off = rMain * 2.08;
+
+    for (const [bx, bz] of [[-c, -c], [c, -c], [c, c], [-c, c]]) {
+      addMesh(lowerGrp, lowGeo, lowMat, bx, lapTop / 2, bz);
+      // Offset upper bar neatly inward along tangential face so paired lap bars touch cleanly without colliding
+      const ux = bx > 0 ? bx - off : bx + off;
+      addMesh(upperGrp, upGeo, upMat, ux, lapBot + upLen / 2, bz);
+    }
+    const tieYs = [];
+    for (let y = lapBot + 0.14; y <= lapTop - 0.10; y += 0.30) tieYs.push(y);
+    const ties = [];
+    for (const y of tieYs) {
+      const s = buildStirrup135(c, rMain, rS, 5.0, tieMat).mesh;
+      s.position.y = y;
+      tiesGrp.add(s);
+      ties.push(s);
+    }
+    return { group: grp, lowerGrp, upperGrp, tiesGrp, ties, lapBot, lapTop };
+  }
+
+  function buildCornerJoint(opts = {}) {
+    const colC = opts.colC != null ? opts.colC : 0.42;
+    const colH = opts.colH != null ? opts.colH : 4.2;
+    const beamLen = opts.beamLen != null ? opts.beamLen : 2.8;
+    const rCol = opts.rCol != null ? opts.rCol : 0.055;
+    const rBeam = opts.rBeam != null ? opts.rBeam : 0.048;
+    const rS = opts.rS != null ? opts.rS : 0.022;
+    const isGood = opts.isGood !== false;
+
+    const grp = new THREE.Group();
+    const colMat = clay(PALETTE.mainBar);
+    const beamAMat = clay(isGood ? PALETTE.beamA : PALETTE.bad);
+    const beamBMat = clay(isGood ? PALETTE.beamB : PALETTE.bad);
+    const hoopMat = clay(PALETTE.ok);
+    const wireMat = clay(PALETTE.wire);
+
+    // Translucent mint column core so interlocking hooks inside the joint read effortlessly
+    const coreHalf = colC + rCol + rS + 0.05;
+    addMesh(grp, new THREE.BoxGeometry(coreHalf * 2, colH, coreHalf * 2), clay(PALETTE.coreMint, { transparent: true, opacity: 0.24 }), 0, colH / 2, 0, false);
+
+    // Column longitudinal bars + joint hoops
+    const colGeo = new THREE.CylinderGeometry(rCol, rCol, colH, 14);
+    for (const [bx, bz] of [[-colC, -colC], [colC, -colC], [colC, colC], [-colC, colC]]) {
+      addMesh(grp, colGeo, colMat, bx, colH / 2, bz);
+    }
+    for (const y of [0.35, 0.85, 1.35, 1.85, 2.35, 2.85, 3.35, 3.85]) {
+      const hp = buildSimpleRectHoop(colC, colC, rCol, rS, hoopMat);
+      hp.position.y = y;
+      grp.add(hp);
+    }
+
+    const beamXGrp = new THREE.Group();
+    const beamZGrp = new THREE.Group();
+    grp.add(beamXGrp, beamZGrp);
+
+    const yLevels = [1.55, 2.45];
+    const zOffs = [-0.24, 0.24];
+    const xOffs = [-0.24, 0.24];
+
+    if (isGood) {
+      // Beam X bars pass THROUGH column core to far face (-colC + 0.08) and bend 90° inward into Beam Z / core!
+      for (const yi of [0, 1]) {
+        const y = yLevels[yi];
+        const hookDirY = yi === 0 ? 0.62 : -0.62;
+        for (const z of zOffs) {
+          const farX = -colC + 0.11;
+          beamXGrp.add(buildFilletHookBar(V(beamLen, y, z), V(farX, y, z), V(farX, y + hookDirY, z), rBeam, 0.14, beamAMat));
+        }
+      }
+      // Beam Z bars pass THROUGH column core to far face (-colC + 0.08) and bend 90° inward vertically into core!
+      for (const yi of [0, 1]) {
+        const y = yLevels[yi] + (yi === 0 ? 0.11 : -0.11);
+        const hookDirY = yi === 0 ? 0.56 : -0.56;
+        for (const x of xOffs) {
+          const farZ = -colC + 0.11;
+          beamZGrp.add(buildFilletHookBar(V(x, y, beamLen), V(x, y, farZ), V(x, y + hookDirY, farZ), rBeam, 0.14, beamBMat));
+        }
+      }
+    } else {
+      // BAD: butt-ended bars stopping outside the column face with flimsy wire loops
+      const stopX = colC + rCol + 0.07;
+      for (const y of yLevels) {
+        for (const z of zOffs) {
+          beamXGrp.add(buildBentBar([V(beamLen, y, z), V(stopX, y, z)], rBeam, beamAMat, 12));
+          addMesh(beamXGrp, new THREE.TorusGeometry(rBeam * 1.45, 0.011, 8, 16), wireMat, stopX + 0.04, y, z);
+        }
+      }
+      const stopZ = colC + rCol + 0.07;
+      for (const y of yLevels) {
+        for (const x of xOffs) {
+          beamZGrp.add(buildBentBar([V(x, y + 0.09, beamLen), V(x, y + 0.09, stopZ)], rBeam, beamBMat, 12));
+          addMesh(beamZGrp, new THREE.TorusGeometry(rBeam * 1.45, 0.011, 8, 16), wireMat, x, y + 0.09, stopZ + 0.04);
+        }
+      }
+    }
+
+    // Beam stirrups outside column
+    const bStGeoX = new THREE.BoxGeometry(0.036, 1.02, 0.62);
+    const bStMat = clay(0x94a3b8, { transparent: true, opacity: 0.35 });
+    for (let d = 0.85; d <= beamLen - 0.3; d += 0.55) {
+      addMesh(beamXGrp, bStGeoX, bStMat, d, 2.0, 0, false);
+      const bStZ = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.02, 0.036), bStMat);
+      bStZ.position.set(0, 2.0, d);
+      beamZGrp.add(bStZ);
+    }
+
+    return { group: grp, beamXGrp, beamZGrp };
+  }
+
+  function buildDeckingSpacer(size = 0.16, mat) {
+    const g = new THREE.Group();
+    const m = mat || clay(PALETTE.decking);
+    addMesh(g, new THREE.BoxGeometry(size, size * 0.9, size), m, 0, 0, 0);
+    // Subtle dark wire tie clip around spacer
+    addMesh(g, new THREE.BoxGeometry(size * 1.08, 0.018, size * 0.25), clay(PALETTE.wire), 0, 0, 0, false);
+    return g;
+  }
+
   global.RevaCAD = {
     PALETTE,
     V,
@@ -298,6 +566,13 @@
       buildFailingHoop90,
       buildCoreAndCoverCutaway,
       buildBucklingColumnBar,
+      buildBentBar,
+      buildFilletHookBar,
+      buildSimpleRectHoop,
+      buildColumnCage,
+      buildLapSpliceAssembly,
+      buildCornerJoint,
+      buildDeckingSpacer,
     },
   };
 })(window);
