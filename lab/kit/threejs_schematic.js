@@ -279,9 +279,22 @@
     pts.push(tipB);
 
     const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.08);
-    const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 160, rS, 14, false), mat || clay(PALETTE.ok));
+    const useMat = mat || clay(PALETTE.ok);
+    const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 160, rS, 14, false), useMat);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+
+    // Solid circular end caps so 135 deg hook tails are filled steel rods rather than hollow open tubes
+    const capGeo = new THREE.CylinderGeometry(rS, rS, rS * 0.20, 14);
+    const capRot = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), dirIn);
+    for (const tip of [tipA, tipB]) {
+      const cap = new THREE.Mesh(capGeo, useMat);
+      cap.position.copy(tip);
+      cap.quaternion.copy(capRot);
+      cap.castShadow = true;
+      mesh.add(cap);
+    }
+
     return { mesh, tipA, tanA, tipB, tanB, cCorner: V(c, 0, c), R, d, lExt };
   }
 

@@ -243,7 +243,7 @@ def _find_three_js():
 def _stage_kit_files(engine_id, bench_dir, lab_root=None):
     """Copy matching shared starter primitives from lab/kit/ into a bench directory."""
     kit_map = {
-        "threejs-webgl": ("threejs_schematic.js",),
+        "threejs-webgl": ("threejs_schematic.js", "threejs_canvas.js", "threejs_pbr_materials.js"),
         "manim": ("manim_schematic.py",),
     }
     needed = kit_map.get(engine_id) or ()
